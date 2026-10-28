@@ -15,6 +15,18 @@ export const REVISIONS_URL = 'https://claude.ai/artifact/1qXKYVF8pUWoBZ9azihLx6'
 
 export const REVISIONS: Revision[] = [
   {
+    id: 'v0.4',
+    date: '2026-10-28',
+    title: 'Background music',
+    url: 'https://claude.ai/artifact/U7tGqvFBsNJvT1v7eWmZJJ',
+    notes: [
+      'Background music (“Cornfield Chase”) with a Music on/off switch: in the top bar, in the cinema controls and in the threshold player. Keyboard: M.',
+      'The choice is remembered. Music fades in on the first click (browsers block sound before that) and dips while the sound effects play.',
+      'In the local project the track plays from public/audio/cornfield-chase.mp3 (git-ignored). On this hosted preview the track is not uploaded: press “Add music” once and choose your copy — it stays in your browser.',
+      'The synthesised sound-effects switch is now labelled FX.',
+    ],
+  },
+  {
     id: 'v0.3',
     date: '2026-10-28',
     title: 'The watch',

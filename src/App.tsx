@@ -1,6 +1,7 @@
 import { Component, lazy, Suspense, useEffect, useMemo, type ReactNode } from 'react';
 import { AnalysisMode } from './modes/AnalysisMode';
 import { FlatMap } from './modes/FlatMap';
+import { music } from './lib/music';
 import { actions, getState, useAtlas } from './state/store';
 import { ThresholdPlayer } from './thresholds/ThresholdPlayer';
 import { ConnectionTooltip } from './ui/ConnectionTooltip';
@@ -62,6 +63,10 @@ function useKeyboard() {
         else if (s.selectedNode || s.selectedConnection) actions.clearSelection();
         return;
       }
+      if (e.key === 'm' || e.key === 'M') {
+        music.toggle();
+        return;
+      }
       if (s.view !== 'map') return;
       if (e.key === 'r' || e.key === 'R') actions.clearSelection();
       else if (e.key === '+' || e.key === '=') actions.zoom(0.8);
@@ -80,6 +85,12 @@ export default function App() {
   const mode = useAtlas((s) => s.mode);
   const reducedMotion = useAtlas((s) => s.reducedMotion);
   const cinema = useAtlas((s) => s.cinema !== null);
+  const sound = useAtlas((s) => s.sound);
+  useEffect(() => {
+    void music.init();
+  }, []);
+  // Lower the music while the synthesised sound effects play.
+  useEffect(() => music.setDuck(sound && view !== 'map'), [sound, view]);
   const webgl = useMemo(hasWebGL, []);
   useKeyboard();
 

@@ -11,3 +11,7 @@ npm-debug.log*
 !.vscode/extensions.json
 .idea
 coverage
+
+# Background music: your own copy of the track, never committed
+public/audio/*.mp3
+public/audio/*.m4a

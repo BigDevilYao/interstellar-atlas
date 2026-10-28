@@ -1,4 +1,5 @@
 import { actions, useAtlas, type Mode } from '../state/store';
+import { MusicButton } from './MusicButton';
 import { VersionBadge } from './VersionBadge';
 
 const MODES: { id: Mode; label: string }[] = [
@@ -16,6 +17,7 @@ export function TopBar() {
         <span className="brand__subtitle">An Atlas of Spatial &amp; Temporal Thresholds</span>
       </button>
       <VersionBadge />
+      <div className="topbar__right">
       <nav className="modes" aria-label="Modes">
         {MODES.map((m) => (
           <button
@@ -29,6 +31,8 @@ export function TopBar() {
           </button>
         ))}
       </nav>
+      <MusicButton />
+      </div>
     </header>
   );
 }

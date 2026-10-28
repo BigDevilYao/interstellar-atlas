@@ -75,6 +75,11 @@ free look, threshold diagram link, sound, exit. Keys: Space, ← →, H (hide HU
 the second hand holds for long and short intervals, dots and dashes ring the dial and decode letter by letter,
 the code streams into quantum data, and the data folds into a habitat cylinder (`src/cinema/scenes/watch.ts`).
 
+**Background music**: “Cornfield Chase” loops behind the site with a **Music on/off** switch (top bar, cinema
+controls, threshold player; key **M**). The choice is remembered; music fades in on the first click (browser
+autoplay rules) and dips under the sound effects. Put your copy at `public/audio/cornfield-chase.mp3` — it is
+git-ignored. Without it, the Music button lets the visitor choose a file, kept in their browser only.
+
 **Revisions**: `src/version.ts` lists every revision with its preview link; the version badge under the title shows
 what changed and links to earlier revisions. Git tags: `v0.1-line-style`, `v0.2-cinematic`, `v0.3-watch`.
 

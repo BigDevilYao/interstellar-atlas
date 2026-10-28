@@ -81,11 +81,11 @@ export function CameraControls() {
         type="button"
         className={`ctl ctl--text ${sound ? 'is-on' : ''}`}
         onClick={() => actions.toggleSound()}
-        title="Synthesised sound bridges in thresholds"
+        title="Synthesised sound effects (thresholds and scenes)"
         aria-pressed={sound}
-        aria-label="Sound"
+        aria-label="Sound effects"
       >
-        {sound ? 'SND' : 'MUTE'}
+        {sound ? 'FX ON' : 'FX OFF'}
       </button>
     </div>
   );

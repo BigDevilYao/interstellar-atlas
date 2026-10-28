@@ -3,6 +3,7 @@ import { NODE_MAP } from '../data/nodes';
 import { THRESHOLD_MAP } from '../data/thresholds';
 import { SoundBridge } from '../lib/sound';
 import { FlatMap } from '../modes/FlatMap';
+import { MusicButton } from '../ui/MusicButton';
 import { actions, getState, useAtlas } from '../state/store';
 import { CHAPTERS } from './chapters';
 import { CinemaEngine } from './engine';
@@ -320,8 +321,9 @@ export default function CinemaStage() {
               Diagram · {threshold.code}
             </button>
           )}
-          <button type="button" className={`hctl hctl--text ${sound ? 'is-on' : ''}`} onClick={() => actions.toggleSound()} aria-pressed={sound} title="Original synthesised sound">
-            Sound {sound ? 'on' : 'off'}
+          <MusicButton variant="hud" />
+          <button type="button" className={`hctl hctl--text ${sound ? 'is-on' : ''}`} onClick={() => actions.toggleSound()} aria-pressed={sound} title="Original synthesised sound effects">
+            FX {sound ? 'on' : 'off'}
           </button>
           <span className="transport-bar__sep" />
           <button type="button" className="hctl hctl--text" onClick={exit} title="Return to the World Map (Esc)">

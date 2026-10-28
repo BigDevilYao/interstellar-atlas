@@ -3,6 +3,7 @@ import { NODE_MAP } from '../data/nodes';
 import { THRESHOLD_MAP, THRESHOLDS } from '../data/thresholds';
 import { Wire } from '../lib/wire3d';
 import { SoundBridge } from '../lib/sound';
+import { MusicButton } from '../ui/MusicButton';
 import { actions, getState, useAtlas } from '../state/store';
 import { SEQUENCES } from './registry';
 
@@ -203,9 +204,12 @@ export function ThresholdPlayer() {
             ))}
           </ol>
         </div>
-        <button type="button" className="btn" onClick={close}>
-          ← Back to map
-        </button>
+        <div className="threshold__actions">
+          <MusicButton variant="hud" />
+          <button type="button" className="btn" onClick={close}>
+            ← Back to map
+          </button>
+        </div>
       </header>
 
       <div className="threshold__caption" aria-live="polite">
