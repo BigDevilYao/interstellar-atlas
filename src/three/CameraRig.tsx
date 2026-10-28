@@ -8,6 +8,9 @@ import { R, connectionMidpoint, nodeWorld } from './geometry/space';
 
 export { fitDistance };
 
+// Camera moves keep real time even when frames are slow (no lag smoothing).
+gsap.ticker.lagSmoothing(0);
+
 interface ControlsLike {
   target: THREE.Vector3;
   update: () => void;
