@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { chapterIndexForNode } from '../cinema/chapters';
 import type { Layer, NodeId, ThresholdId } from '../data/types';
 
 /**
@@ -7,7 +8,7 @@ import type { Layer, NodeId, ThresholdId } from '../data/types';
  */
 
 export type Mode = 'explore' | 'journey' | 'analysis';
-export type View = 'map' | 'threshold' | 'scene';
+export type View = 'map' | 'threshold' | 'cinema';
 export type Quality = 'high' | 'low';
 
 export type CameraCommand =
@@ -19,8 +20,17 @@ export type CameraCommand =
 export interface ThresholdRequest {
   id: ThresholdId;
   reverse: boolean;
-  /** Called by guided journey to continue automatically. */
   autoplay: boolean;
+  /** Return to the cinema stage (instead of the map) when closed. */
+  fromCinema?: boolean;
+}
+
+/** What the cinema stage shows: the chaptered journey, or one scene in free-look. */
+export interface CinemaRequest {
+  mode: 'journey' | 'scene';
+  /** Chapter index (see cinema/chapters). */
+  index: number;
+  nonce: number;
 }
 
 export interface AtlasState {
@@ -33,9 +43,9 @@ export interface AtlasState {
   layers: Record<Layer, boolean>;
   camera: CameraCommand;
   threshold: ThresholdRequest | null;
-  sceneNode: NodeId | null;
-  journeyIndex: number;
-  journeyPlaying: boolean;
+  cinema: CinemaRequest | null;
+  /** Current journey chapter, mirrored from the cinema engine (for the HUD and the map). */
+  chapter: number;
   reducedMotion: boolean;
   quality: Quality;
   sound: boolean;
@@ -55,9 +65,8 @@ let state: AtlasState = {
   layers: { physical: true, spacetime: true, information: true },
   camera: { kind: 'home', nonce: 0 },
   threshold: null,
-  sceneNode: null,
-  journeyIndex: 0,
-  journeyPlaying: false,
+  cinema: null,
+  chapter: 0,
   reducedMotion: !!prefersReducedMotion,
   quality: 'high',
   sound: false,
@@ -127,23 +136,44 @@ export const actions = {
     setState((s) => ({ layers: { ...s.layers, [layer]: !s.layers[layer] } }));
   },
   setMode(mode: Mode) {
-    if (mode === 'journey') {
-      setState({ mode, journeyIndex: 0, journeyPlaying: true, selectedConnection: null, view: 'map', threshold: null, sceneNode: null });
-    } else {
-      setState({ mode, journeyPlaying: false, view: 'map', threshold: null, sceneNode: null });
-    }
+    if (mode === 'journey') actions.startJourney(0);
+    else setState({ mode, view: 'map', threshold: null, cinema: null });
+  },
+  /** Start the cinematic Guided Journey (chapter 0 = Murph's Room). */
+  startJourney(index = 0) {
+    setState({
+      mode: 'journey',
+      view: 'cinema',
+      cinema: { mode: 'journey', index, nonce: nonce++ },
+      chapter: index,
+      threshold: null,
+      hoveredNode: null,
+      hoveredConnection: null,
+    });
   },
   openThreshold(id: ThresholdId, reverse = false, autoplay = false) {
-    setState({ view: 'threshold', threshold: { id, reverse, autoplay }, sceneNode: null, hoveredNode: null, hoveredConnection: null });
+    const fromCinema = state.view === 'cinema' || (state.view === 'threshold' && !!state.threshold?.fromCinema);
+    setState({ view: 'threshold', threshold: { id, reverse, autoplay, fromCinema }, hoveredNode: null, hoveredConnection: null });
   },
+  closeThreshold() {
+    if (state.threshold?.fromCinema && state.cinema) setState({ view: 'cinema', threshold: null });
+    else actions.backToMap();
+  },
+  /** Open a location's cinematic scene in free-look mode. */
   openScene(id: NodeId) {
-    setState({ view: 'scene', sceneNode: id, threshold: null, hoveredNode: null, hoveredConnection: null });
+    setState({
+      view: 'cinema',
+      cinema: { mode: 'scene', index: chapterIndexForNode(id), nonce: nonce++ },
+      threshold: null,
+      hoveredNode: null,
+      hoveredConnection: null,
+    });
+  },
+  setChapter(index: number) {
+    if (state.chapter !== index) setState({ chapter: index });
   },
   backToMap() {
-    setState({ view: 'map', threshold: null, sceneNode: null });
-  },
-  setJourney(index: number, playing?: boolean) {
-    setState((s) => ({ journeyIndex: index, journeyPlaying: playing ?? s.journeyPlaying }));
+    setState((s) => ({ view: 'map', threshold: null, cinema: null, mode: s.mode === 'journey' ? 'explore' : s.mode }));
   },
   setQuality(q: Quality) {
     setState({ quality: q });

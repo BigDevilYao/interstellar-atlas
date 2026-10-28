@@ -1,18 +1,19 @@
 import { Component, lazy, Suspense, useEffect, useMemo, type ReactNode } from 'react';
 import { AnalysisMode } from './modes/AnalysisMode';
 import { FlatMap } from './modes/FlatMap';
-import { JourneyBar } from './modes/JourneyBar';
-import { SceneViewer } from './scenes/SceneViewer';
 import { actions, getState, useAtlas } from './state/store';
 import { ThresholdPlayer } from './thresholds/ThresholdPlayer';
 import { ConnectionTooltip } from './ui/ConnectionTooltip';
 import { InfoPanel } from './ui/InfoPanel';
+import { JourneyEntry } from './ui/JourneyEntry';
 import { Loader } from './ui/Loader';
 import { CameraControls, Hint, LayerLegend } from './ui/MapHud';
 import { TopBar } from './ui/TopBar';
 
 // The 3D World Map is code-split so the shell paints immediately.
 const WorldMap = lazy(() => import('./three/WorldMap'));
+// The cinematic scenes (and their engine) load only when the journey or a scene is opened.
+const CinemaStage = lazy(() => import('./cinema/CinemaStage'));
 
 function hasWebGL(): boolean {
   try {
@@ -55,10 +56,9 @@ function useKeyboard() {
       if (tag === 'INPUT' || tag === 'TEXTAREA') return;
       const s = getState();
       if (e.key === 'Escape') {
-        if (s.view !== 'map') {
-          if (s.mode === 'journey') actions.setJourney(s.journeyIndex, false);
-          actions.backToMap();
-        } else if (s.mode === 'analysis') actions.setMode('explore');
+        if (s.view === 'threshold') actions.closeThreshold();
+        else if (s.view !== 'map') actions.backToMap();
+        else if (s.mode === 'analysis') actions.setMode('explore');
         else if (s.selectedNode || s.selectedConnection) actions.clearSelection();
         return;
       }
@@ -79,6 +79,7 @@ export default function App() {
   const view = useAtlas((s) => s.view);
   const mode = useAtlas((s) => s.mode);
   const reducedMotion = useAtlas((s) => s.reducedMotion);
+  const cinema = useAtlas((s) => s.cinema !== null);
   const webgl = useMemo(hasWebGL, []);
   useKeyboard();
 
@@ -96,9 +97,10 @@ export default function App() {
         )}
       </main>
 
-      <TopBar />
+      {view !== 'cinema' && <TopBar />}
       {view === 'map' && mode !== 'analysis' && (
         <>
+          <JourneyEntry />
           <LayerLegend />
           <CameraControls />
           <Hint />
@@ -106,10 +108,13 @@ export default function App() {
       )}
       <InfoPanel />
       <ConnectionTooltip />
-      <JourneyBar />
       <AnalysisMode />
+      {cinema && webgl && (
+        <Suspense fallback={<div className="cine-loading micro">Loading scene…</div>}>
+          <CinemaStage />
+        </Suspense>
+      )}
       <ThresholdPlayer />
-      <SceneViewer />
       <Loader />
     </div>
   );

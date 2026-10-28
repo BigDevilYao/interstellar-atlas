@@ -4,7 +4,7 @@ import { NODES, NODE_MAP } from '../data/nodes';
 import { THRESHOLDS } from '../data/thresholds';
 import type { NodeId, ThresholdType } from '../data/types';
 import { Icon } from '../icons/Icons';
-import { SCENES } from '../scenes/scenes';
+import { CHAPTERS, chapterIndexForNode } from '../cinema/chapters';
 import { actions, useAtlas } from '../state/store';
 import { FlatMap } from './FlatMap';
 import { TemporalChart } from './TemporalChart';
@@ -178,7 +178,7 @@ function SpaceTable() {
             </button>
             <span role="cell">{n.spaceType}</span>
             <span role="cell">{n.production}</span>
-            <span role="cell">{SCENES[n.id].view}</span>
+            <span role="cell">{CHAPTERS[chapterIndexForNode(n.id)].view}</span>
           </div>
         ))}
       </div>

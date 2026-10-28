@@ -3,7 +3,6 @@ import { NODE_MAP } from '../data/nodes';
 import { THRESHOLD_MAP, THRESHOLDS } from '../data/thresholds';
 import { Wire } from '../lib/wire3d';
 import { SoundBridge } from '../lib/sound';
-import { journeyNext } from '../modes/journeyControl';
 import { actions, getState, useAtlas } from '../state/store';
 import { SEQUENCES } from './registry';
 
@@ -17,8 +16,6 @@ export function ThresholdPlayer() {
   const view = useAtlas((s) => s.view);
   const sound = useAtlas((s) => s.sound);
   const reducedMotion = useAtlas((s) => s.reducedMotion);
-  const mode = useAtlas((s) => s.mode);
-  const journeyPlaying = useAtlas((s) => s.journeyPlaying);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [playing, setPlaying] = useState(true);
@@ -135,19 +132,9 @@ export function ThresholdPlayer() {
     }
   }, [playing, reverse]);
 
-  // Journey auto-advance.
-  useEffect(() => {
-    if (!done || !req?.autoplay) return;
-    if (mode === 'journey' && journeyPlaying) {
-      const id = window.setTimeout(() => journeyNext(), 900);
-      return () => window.clearTimeout(id);
-    }
-  }, [done, req, mode, journeyPlaying]);
-
   const close = useCallback(() => {
     sb.current?.stop();
-    if (getState().mode === 'journey') actions.setJourney(getState().journeyIndex, false);
-    actions.backToMap();
+    actions.closeThreshold();
   }, []);
 
   const seekTo = useCallback(
@@ -313,7 +300,7 @@ export function ThresholdPlayer() {
               </li>
             ))}
           </ul>
-          {done && !(mode === 'journey' && journeyPlaying) && (
+          {done && !req.fromCinema && (
             <button type="button" className="btn btn--primary" onClick={() => actions.openThreshold(next.id)}>
               Next threshold · {next.code} →
             </button>

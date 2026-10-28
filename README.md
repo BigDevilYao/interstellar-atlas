@@ -63,11 +63,20 @@ Open **http://localhost:5173**.
 Each has captions per beat, a scrub bar with beat markers, play/pause, previous/next beat, keyboard control
 and an optional **original synthesised** sound bridge (Web Audio; no recorded audio).
 
-**Scene environments**: an orbitable white-line architectural model for every location, with annotations
-(the bedroom also has a “time states” toggle).
+**Cinematic journey** (homepage card *Begin the journey · Chapter 01 · Murph’s Room*, or the Guided Journey tab):
+14 chapters rendered as lit, colour-graded 3D environments — Murph’s room, the farm and dust storm, the NASA silo,
+the Endurance, Saturn, the wormhole, Miller’s wave, Mann’s frozen clouds, the docking, Gargantua, the Tesseract,
+the watch, Cooper Station and Edmunds’ camp. Each chapter is entered through its own transition shader
+(dust, floodlight sweep, ascent, time-lapse, lens, tunnel, time-stutter, roll, swirl, horizon, lattice, signal,
+departure). HUD: chapter counter, place, Earth/mission telemetry, subtitles, chapter ticks, minimap, prev/play/next,
+free look, threshold diagram link, sound, exit. Keys: Space, ← →, H (hide HUD), Esc.
 
-**Guided Journey**: 13 steps alternating camera focus on nodes and thresholds, with
-Next / Previous / Pause / Resume / Skip / Return to map.
+**Scenes**: *Enter scene* on any location opens the same environment in free-look (orbit) mode with 3D labels,
+and *Play the journey from here*.
+
+All scene artwork is original procedural geometry and shaders (no film frames, footage or proprietary models).
+Rendering: HDR targets → transition → custom bloom → ACES grade with split-toning, vignette and grain;
+quality drops automatically below 28 fps (`src/cinema/`).
 
 **Analysis**: threshold classification matrix; physical vs space-time vs information small multiples;
 a conceptual temporal chart (Earth vs mission time, Miller dilation, Tesseract loops); a logarithmic scale
@@ -117,8 +126,8 @@ src/
     ThresholdPlayer.tsx  timeline, captions, scrubbing, sound
     registry.ts          id → sequence renderer
     sequences/*.ts       one renderer per threshold
-  scenes/          ← scene environments (SceneViewer + per-location builders)
-  modes/           ← Guided Journey, Analysis, temporal chart, flat map
+  cinema/          ← cinematic engine, transitions, bloom, chapters, HUD (CinemaStage) and scenes/
+  modes/           ← Analysis, temporal chart, flat map
   ui/              ← top bar, HUD, panels, tooltip, loader
   lib/             ← wire3d (canvas perspective line renderer), easing, sound
   styles/global.css
@@ -145,4 +154,4 @@ points shape the curve. **New threshold**: add data in `thresholds.ts`, write a 
 - The black-hole shader is the main GPU cost; it discards empty pixels early and uses adaptive step sizes.
 - `HQ/LQ` halves the ray-march steps and caps device pixel ratio; a performance monitor switches to LQ
   automatically if the frame rate drops.
-- The 3D map is code-split and paused (`frameloop="never"`) while a threshold or scene is open.
+- The 3D map is code-split and paused (`frameloop="never"`) while a threshold or scene is open; the cinema module is lazy-loaded and suspends rendering when covered.

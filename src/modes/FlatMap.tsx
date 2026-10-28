@@ -59,6 +59,7 @@ export function FlatMap({
   showLabels = true,
   onNode,
   title,
+  highlight,
 }: {
   size?: number;
   layers: Layer[];
@@ -66,6 +67,8 @@ export function FlatMap({
   showLabels?: boolean;
   onNode?: (id: NodeId) => void;
   title?: string;
+  /** Node to mark as the current location. */
+  highlight?: NodeId;
 }) {
   const conns = CONNECTIONS.filter((c) => layers.includes(c.layer));
   return (
@@ -98,7 +101,8 @@ export function FlatMap({
       {NODES.filter((n) => n.marker !== 'core').map((n) => {
         const [x, y] = pt(n.id, size);
         return (
-          <g key={n.id} transform={`translate(${x},${y})`} className={onNode ? 'flatmap__node is-click' : 'flatmap__node'} onClick={() => onNode?.(n.id)}>
+          <g key={n.id} transform={`translate(${x},${y})`} className={`flatmap__node ${onNode ? 'is-click' : ''} ${highlight === n.id ? 'is-here' : ''}`} onClick={() => onNode?.(n.id)}>
+            {highlight === n.id && <circle r={9} className="flatmap__here" />}
             {showIcons ? (
               <g transform="translate(-14,-14)" color="#ece8e0">
                 <rect x={-2} y={-2} width={32} height={32} rx={4} fill="#000" stroke="#ece8e0" strokeOpacity={0.6} />

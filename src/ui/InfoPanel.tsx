@@ -3,6 +3,7 @@ import { NODE_MAP } from '../data/nodes';
 import { THRESHOLD_MAP } from '../data/thresholds';
 import type { AtlasConnection, Layer, NodeId } from '../data/types';
 import { Icon } from '../icons/Icons';
+import { chapterIndexForNode } from '../cinema/chapters';
 import { actions, useAtlas } from '../state/store';
 
 const LAYER_CLASS: Record<Layer, string> = {
@@ -111,6 +112,11 @@ function NodePanel({ id }: { id: NodeId }) {
         {n.hasScene && (
           <button type="button" className="btn btn--primary" onClick={() => actions.openScene(id)}>
             Enter scene
+          </button>
+        )}
+        {n.hasScene && (
+          <button type="button" className="btn" onClick={() => actions.startJourney(chapterIndexForNode(id))}>
+            ▸ Journey from here
           </button>
         )}
         <button type="button" className="btn" onClick={() => actions.clearSelection()}>
