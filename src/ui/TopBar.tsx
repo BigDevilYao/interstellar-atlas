@@ -1,4 +1,5 @@
 import { actions, useAtlas, type Mode } from '../state/store';
+import { VersionBadge } from './VersionBadge';
 
 const MODES: { id: Mode; label: string }[] = [
   { id: 'explore', label: 'Explore' },
@@ -14,6 +15,7 @@ export function TopBar() {
         <span className="brand__title">INTERSTELLAR</span>
         <span className="brand__subtitle">An Atlas of Spatial &amp; Temporal Thresholds</span>
       </button>
+      <VersionBadge />
       <nav className="modes" aria-label="Modes">
         {MODES.map((m) => (
           <button

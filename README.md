@@ -71,6 +71,13 @@ the watch, Cooper Station and Edmunds’ camp. Each chapter is entered through i
 departure). HUD: chapter counter, place, Earth/mission telemetry, subtitles, chapter ticks, minimap, prev/play/next,
 free look, threshold diagram link, sound, exit. Keys: Space, ← →, H (hide HUD), Esc.
 
+**Chapter 12 · The Watch** animates the watch idea from the line diagrams in 3D: gravity pulses reach across time,
+the second hand holds for long and short intervals, dots and dashes ring the dial and decode letter by letter,
+the code streams into quantum data, and the data folds into a habitat cylinder (`src/cinema/scenes/watch.ts`).
+
+**Revisions**: `src/version.ts` lists every revision with its preview link; the version badge under the title shows
+what changed and links to earlier revisions. Git tags: `v0.1-line-style`, `v0.2-cinematic`, `v0.3-watch`.
+
 **Scenes**: *Enter scene* on any location opens the same environment in free-look (orbit) mode with 3D labels,
 and *Play the journey from here*.
 

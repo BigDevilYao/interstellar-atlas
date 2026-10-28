@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { box, canvasTexture, disposeScene, easeInOut, handheld, lightShaft, particles, rng, seg, std } from '../lib';
 import type { SceneBuilder } from '../types';
+import { createWatch, createWatchStory, setTime, watchEnvironment } from './watch';
 
 /**
  * MURPH'S ROOM — late-afternoon interior: dusty window light, a wall of books,
@@ -272,22 +273,29 @@ export const buildBedroom: SceneBuilder = (ctx, variant) => {
   const fallStartA = fallA.position.clone();
   const fallStartB = fallB.position.clone();
 
-  // The watch.
-  const watch = new THREE.Group();
-  const wr = adult ? 0.055 : 0.045;
-  const rim = new THREE.Mesh(new THREE.TorusGeometry(wr, 0.008, 12, 40), std('#c9a35a', { metalness: 0.9, roughness: 0.25 }));
-  const face = new THREE.Mesh(
-    new THREE.CircleGeometry(wr, 40),
-    new THREE.MeshStandardMaterial({ color: '#f2ead8', emissive: new THREE.Color(adult ? '#ffcf8a' : '#000000'), emissiveIntensity: adult ? 0.1 : 0 }),
-  );
-  const hand = new THREE.Mesh(new THREE.BoxGeometry(0.003, wr * 0.85, 0.002), new THREE.MeshBasicMaterial({ color: '#1a1a1a' }));
-  hand.geometry.translate(0, wr * 0.4, 0.002);
-  watch.add(rim, face, hand);
-  watch.position.set(shelfX + 0.6, 0.92 + 0.075, sz + 0.05);
-  scene.add(watch);
-  const watchGlow = new THREE.PointLight('#ffcf8a', adult ? 0.3 : 0, 0.6, 2);
-  watchGlow.position.copy(watch.position).add(new THREE.Vector3(0, 0, 0.1));
-  scene.add(watchGlow);
+  // The watch — standing on its strap in the gap on the third shelf.
+  const wm = createWatch(adult ? 0.03 : 0.024);
+  const plankTop = 0.92 + 0.0175;
+  wm.group.position.set(shelfX + 0.6, plankTop, sz + 0.02);
+  wm.group.rotation.y = adult ? -0.42 : 0.3;
+  scene.add(wm.group);
+  const envTex = watchEnvironment(ctx.renderer, true);
+  wm.materials.forEach((m) => {
+    m.envMap = envTex;
+    m.envMapIntensity = adult ? 0.9 : 0.7;
+  });
+  wm.group.updateMatrixWorld(true);
+  const watchCenter = wm.center.clone().applyMatrix4(wm.group.matrixWorld);
+  // A soft key light so the watch reads as an object, not a light source.
+  const key = new THREE.SpotLight(adult ? '#ffd9a8' : '#fff0d8', adult ? 1.6 : 0.6, 2.4, 0.32, 0.8, 1.6);
+  key.position.copy(watchCenter).add(new THREE.Vector3(-0.55, 0.5, 0.9));
+  key.target.position.copy(watchCenter);
+  key.castShadow = adult;
+  key.shadow.mapSize.set(512, 512);
+  key.shadow.bias = -0.0005;
+  scene.add(key, key.target);
+  const story = adult ? createWatchStory(wm, watchCenter, Z0 + 0.045, [shelfX + 0.46, shelfX + 0.76], [0.1, 2.25]) : null;
+  if (story) scene.add(story.group);
 
   // ── Bed
   const bx = X0 + 0.55;
@@ -369,22 +377,22 @@ export const buildBedroom: SceneBuilder = (ctx, variant) => {
   // ── Camera script
   const camA = new THREE.Vector3(-1.75, 1.5, 2.05);
   const camB = new THREE.Vector3(-0.55, 1.38, 0.5);
-  const camC = adult ? new THREE.Vector3(0.2, 1.22, -0.45) : new THREE.Vector3(-0.55, 0.42, 2.05);
+  const camC = new THREE.Vector3(-0.55, 0.42, 2.05);
   const lookShelf = new THREE.Vector3(shelfX + 0.95, 1.15, Z0 + 0.6);
-  const lookEnd = adult ? watch.position.clone().add(new THREE.Vector3(-0.2, 0.05, 0)) : new THREE.Vector3(0.2, 0.15, 0.0);
+  const lookEnd = new THREE.Vector3(0.2, 0.15, 0.0);
+  const shot = { pos: new THREE.Vector3(), look: new THREE.Vector3() };
   const look = new THREE.Vector3();
-  let ticks = 0;
 
   return {
     scene,
     camera,
     exposure: adult ? 1.2 : 1.1,
-    bloom: { strength: 0.45, radius: 0.35, threshold: 1.1 },
+    bloom: adult ? { strength: 0.6, radius: 0.45, threshold: 1.35 } : { strength: 0.45, radius: 0.35, threshold: 1.1 },
     focus: lookShelf.clone(),
     anchors: [
       { at: new THREE.Vector3(shelfX, sh + 0.05, sz), label: 'Bookshelf · the threshold wall' },
       { at: new THREE.Vector3(X1, wy1, wmz), label: 'Window · the dust storm enters' },
-      { at: watch.position.clone(), label: 'The watch' },
+      { at: watchCenter.clone(), label: adult ? 'The watch · data channel' : 'The watch' },
       { at: new THREE.Vector3(0.1, 0.01, 0.55), label: 'Dust in binary bands' },
     ],
     update(t, dt, k, free) {
@@ -402,23 +410,33 @@ export const buildBedroom: SceneBuilder = (ctx, variant) => {
         fallA.visible = fallB.visible = false;
       }
       bandMat.opacity = adult ? 0.55 : 0.85 * seg(k, 0.55, 0.75);
-      // Watch: the second hand twitches in long and short intervals.
-      ticks += dt * (adult ? 2.4 : 1);
-      const morse = [1, 0, 1, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 0];
-      const step = Math.floor(ticks);
-      hand.rotation.z = -(step / 60) * Math.PI * 2 - (morse[step % morse.length] ? 0.12 : 0.03);
-      watchGlow.intensity = adult ? 0.15 + 0.25 * (morse[step % morse.length] ? 1 : 0.2) : 0;
+      // Watch.
+      if (story) story.update(k, t);
+      else setTime(wm, t);
 
       if (!free) {
-        const a = easeInOut(seg(k, 0, 0.6));
-        const b = easeInOut(seg(k, 0.6, 1));
-        camera.position.copy(camA).lerp(camB, a).lerp(camC, b);
-        look.copy(lookShelf).lerp(lookEnd, b);
-        camera.lookAt(look);
-        handheld(camera, t, 1);
+        if (story) {
+          // Evening: walk to the shelf, then hand over to the watch story's framing.
+          const a = easeInOut(seg(k, 0, 0.16));
+          const b = easeInOut(seg(k, 0.12, 0.3));
+          story.frame(k, shot);
+          camera.position.copy(camA).lerp(camB, a).lerp(shot.pos, b);
+          look.copy(lookShelf).lerp(shot.look, b);
+          camera.lookAt(look);
+          handheld(camera, t, 1 - 0.8 * b);
+        } else {
+          const a = easeInOut(seg(k, 0, 0.6));
+          const b = easeInOut(seg(k, 0.6, 1));
+          camera.position.copy(camA).lerp(camB, a).lerp(camC, b);
+          look.copy(lookShelf).lerp(lookEnd, b);
+          camera.lookAt(look);
+          handheld(camera, t, 1);
+        }
       }
     },
     dispose() {
+      story?.dispose();
+      envTex.dispose();
       disposeScene(scene);
     },
   };
