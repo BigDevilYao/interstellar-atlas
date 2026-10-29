@@ -15,6 +15,18 @@ export const REVISIONS_URL = 'https://claude.ai/artifact/1qXKYVF8pUWoBZ9azihLx6'
 
 export const REVISIONS: Revision[] = [
   {
+    id: 'v0.5',
+    date: '2026-10-28',
+    title: 'Sound switch',
+    url: 'https://claude.ai/artifact/9b1bGLCVLGcMSUx1ZUXerX',
+    notes: [
+      'The version label is removed from the homepage (the version now shows only in the browser tab and on this page).',
+      '“Add music” is replaced by a plain Sound on / off switch — no file to choose. The choice is remembered.',
+      'Cornfield Chase plays automatically in the local project and in the standalone file interstellar-v0.5-with-music.html (music built in, opens offline).',
+      'This hosted page does not carry the commercial recording; here the switch plays an original ambient score generated in the browser.',
+    ],
+  },
+  {
     id: 'v0.4',
     date: '2026-10-28',
     title: 'Background music',

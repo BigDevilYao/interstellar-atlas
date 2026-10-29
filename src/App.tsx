@@ -2,6 +2,7 @@ import { Component, lazy, Suspense, useEffect, useMemo, type ReactNode } from 'r
 import { AnalysisMode } from './modes/AnalysisMode';
 import { FlatMap } from './modes/FlatMap';
 import { music } from './lib/music';
+import { CURRENT } from './version';
 import { actions, getState, useAtlas } from './state/store';
 import { ThresholdPlayer } from './thresholds/ThresholdPlayer';
 import { ConnectionTooltip } from './ui/ConnectionTooltip';
@@ -88,6 +89,7 @@ export default function App() {
   const sound = useAtlas((s) => s.sound);
   useEffect(() => {
     void music.init();
+    document.title = `INTERSTELLAR — An Atlas of Spatial & Temporal Thresholds · ${CURRENT.id}`;
   }, []);
   // Lower the music while the synthesised sound effects play.
   useEffect(() => music.setDuck(sound && view !== 'map'), [sound, view]);

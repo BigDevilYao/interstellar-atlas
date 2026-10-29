@@ -1,27 +1,28 @@
-import { MUSIC_ARTIST, MUSIC_TITLE, music, useMusic } from '../lib/music';
+import { music, useMusic } from '../lib/music';
 
 /**
- * On/off switch for the background music. Animated bars while playing.
+ * The sound switch: background music on / off. Animated bars while playing.
  * `variant="hud"` matches the cinema transport bar; the default matches the map controls.
  */
 export function MusicButton({ variant = 'map' }: { variant?: 'map' | 'hud' }) {
   const m = useMusic();
-  const needsFile = m.source === 'none';
-  const on = m.enabled && !needsFile;
-  const label = needsFile ? 'Add music' : on ? 'Music on' : 'Music off';
-  const title = needsFile
-    ? `Choose your copy of “${MUSIC_TITLE}” — it stays in this browser`
-    : `${MUSIC_TITLE} · ${MUSIC_ARTIST} — ${on ? 'click to turn off' : 'click to turn on'} (M)${m.waiting ? ' · starts on your first click' : ''}`;
+  const on = m.enabled;
+  const label = on ? 'Sound on' : 'Sound off';
+  const title = `${m.title ? `${m.title} — ` : ''}${on ? 'click to turn the sound off' : 'click to turn the sound on'} (M)${on && m.waiting ? ' · starts on your first click' : ''}`;
   return (
     <button
       type="button"
       data-music-toggle=""
-      className={`music-btn music-btn--${variant} ${on ? 'is-on' : ''} ${m.playing ? 'is-playing' : ''} ${needsFile ? 'is-empty' : ''}`}
+      className={`music-btn music-btn--${variant} ${on ? 'is-on' : ''} ${m.playing ? 'is-playing' : ''}`}
       onClick={() => music.toggle()}
       aria-pressed={on}
-      aria-label={`${label}: ${MUSIC_TITLE}`}
+      aria-label={`Sound ${on ? 'on' : 'off'}`}
       title={title}
     >
+      <svg className="music-btn__icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M4 9h4l5-4v14l-5-4H4z" />
+        {on ? <path className="music-btn__wave" d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12" /> : <path d="M17 9l5 6M22 9l-5 6" />}
+      </svg>
       <span className="music-btn__bars" aria-hidden="true">
         <i />
         <i />
