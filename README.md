@@ -80,6 +80,8 @@ the code streams into quantum data, and the data folds into a habitat cylinder (
 embedded in a standalone build → `public/audio/cornfield-chase.mp3` (your copy, git-ignored) → a file you choose
 with *Add music*, kept in your browser. The choice is remembered; music fades in on the first click and dips under FX.
 
+**Publishing**: see `DEPLOY.md` — Vercel serves the prebuilt site in `site/` (configured by `vercel.json`).
+
 **Revisions**: `src/version.ts` lists every revision with its preview link; the current version shows in the browser tab title. Git tags: `v0.1-line-style`, `v0.2-cinematic`, `v0.3-watch`, `v0.4-music`, `v0.5-sound`, `v0.6-add-music`.
 
 **Scenes**: *Enter scene* on any location opens the same environment in free-look (orbit) mode with 3D labels,

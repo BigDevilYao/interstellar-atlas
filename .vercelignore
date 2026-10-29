@@ -1,0 +1,6 @@
+# Never upload the background-music recording or local tooling.
+public/audio/*.mp3
+public/audio/*.m4a
+node_modules
+dist
+.git

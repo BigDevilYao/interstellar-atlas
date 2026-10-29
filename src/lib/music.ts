@@ -119,7 +119,9 @@ class MusicPlayer {
         /* fall through */
       }
     }
-    if (!url) try {
+    // The owner's local copy only exists in the local project; public deployments never carry it.
+    const local = location.protocol === 'file:' || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+    if (!url && local) try {
       const res = await fetch(BUNDLED_URL, { method: 'HEAD' });
       const type = res.headers.get('content-type') ?? '';
       if (res.ok && !type.includes('text/html')) {
