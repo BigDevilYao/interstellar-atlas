@@ -75,12 +75,12 @@ free look, threshold diagram link, sound, exit. Keys: Space, ← →, H (hide HU
 the second hand holds for long and short intervals, dots and dashes ring the dial and decode letter by letter,
 the code streams into quantum data, and the data folds into a habitat cylinder (`src/cinema/scenes/watch.ts`).
 
-**Background music**: a **Sound on/off** switch (top bar, cinema controls, threshold player; key **M**), remembered
-between visits. Music fades in on the first click (browser autoplay rules) and dips under the sound effects (**FX**).
-Source, in order: a track embedded in a standalone build → `public/audio/cornfield-chase.mp3` (your copy, git-ignored)
-→ an original ambient score synthesised in the browser (`src/lib/score.ts`, used on hosted previews).
+**Background music**: the top-right button reads **Add music** until a track is available, then becomes a
+**Music on/off** switch (also in the cinema controls and threshold player; key **M**). Source, in order: a track
+embedded in a standalone build → `public/audio/cornfield-chase.mp3` (your copy, git-ignored) → a file you choose
+with *Add music*, kept in your browser. The choice is remembered; music fades in on the first click and dips under FX.
 
-**Revisions**: `src/version.ts` lists every revision with its preview link; the current version shows in the browser tab title. Git tags: `v0.1-line-style`, `v0.2-cinematic`, `v0.3-watch`, `v0.4-music`, `v0.5-sound`.
+**Revisions**: `src/version.ts` lists every revision with its preview link; the current version shows in the browser tab title. Git tags: `v0.1-line-style`, `v0.2-cinematic`, `v0.3-watch`, `v0.4-music`, `v0.5-sound`, `v0.6-add-music`.
 
 **Scenes**: *Enter scene* on any location opens the same environment in free-look (orbit) mode with 3D labels,
 and *Play the journey from here*.

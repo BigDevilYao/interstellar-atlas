@@ -15,6 +15,17 @@ export const REVISIONS_URL = 'https://claude.ai/artifact/1qXKYVF8pUWoBZ9azihLx6'
 
 export const REVISIONS: Revision[] = [
   {
+    id: 'v0.6',
+    date: '2026-10-28',
+    title: 'Add your own music',
+    url: 'https://claude.ai/artifact/C5YVncYaT7yANSJVPT2PiZ',
+    notes: [
+      'The top-right music button is back to the v0.4 behaviour: “Add music” lets you choose your own track once; after that it is a Music on / off switch.',
+      'The chosen file stays in your browser and is remembered on this page. Music fades in on the first click and dips under the FX sounds; key M toggles it.',
+      'Everything else as in v0.5 (no version label on the homepage). The original ambient score is removed.',
+    ],
+  },
+  {
     id: 'v0.5',
     date: '2026-10-28',
     title: 'Sound switch',

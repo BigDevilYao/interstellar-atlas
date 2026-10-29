@@ -2637,20 +2637,3 @@ button:focus-visible,
   }
 }
 
-.music-btn__icon {
-  width: 15px;
-  height: 15px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.music-btn__bars {
-  display: none;
-}
-
-.music-btn.is-playing .music-btn__bars {
-  display: inline-flex;
-}
