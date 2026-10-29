@@ -1,0 +1,134 @@
+import { Component, lazy, Suspense, useEffect, useMemo, type ReactNode } from 'react';
+import { AnalysisMode } from './modes/AnalysisMode';
+import { FlatMap } from './modes/FlatMap';
+import { music } from './lib/music';
+import { CURRENT } from './version';
+import { actions, getState, useAtlas } from './state/store';
+import { ThresholdPlayer } from './thresholds/ThresholdPlayer';
+import { ConnectionTooltip } from './ui/ConnectionTooltip';
+import { InfoPanel } from './ui/InfoPanel';
+import { JourneyEntry } from './ui/JourneyEntry';
+import { Loader } from './ui/Loader';
+import { CameraControls, Hint, LayerLegend } from './ui/MapHud';
+import { TopBar } from './ui/TopBar';
+
+// The 3D World Map is code-split so the shell paints immediately.
+const WorldMap = lazy(() => import('./three/WorldMap'));
+// The cinematic scenes (and their engine) load only when the journey or a scene is opened.
+const CinemaStage = lazy(() => import('./cinema/CinemaStage'));
+
+function hasWebGL(): boolean {
+  try {
+    const c = document.createElement('canvas');
+    return !!(c.getContext('webgl2') || c.getContext('webgl'));
+  } catch {
+    return false;
+  }
+}
+
+/** Graceful fallback: a flat SVG atlas generated from the same data. */
+function FlatFallback({ reason }: { reason: string }) {
+  useEffect(() => actions.setReady(), []);
+  return (
+    <div className="fallback">
+      <FlatMap size={640} layers={['physical', 'spacetime', 'information']} showIcons onNode={(id) => actions.openScene(id)} title="Flat World Map" />
+      <p className="micro">{reason} · showing the flat atlas · select a location to open its scene</p>
+    </div>
+  );
+}
+
+class MapBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  componentDidCatch(error: Error) {
+    console.error('[atlas] World Map failed', error);
+  }
+  render() {
+    if (this.state.error) return <FlatFallback reason="The 3D renderer could not start" />;
+    return this.props.children;
+  }
+}
+
+function useKeyboard() {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      const s = getState();
+      if (e.key === 'Escape') {
+        if (s.view === 'threshold') actions.closeThreshold();
+        else if (s.view !== 'map') actions.backToMap();
+        else if (s.mode === 'analysis') actions.setMode('explore');
+        else if (s.selectedNode || s.selectedConnection) actions.clearSelection();
+        return;
+      }
+      if (e.key === 'm' || e.key === 'M') {
+        music.toggle();
+        return;
+      }
+      if (s.view !== 'map') return;
+      if (e.key === 'r' || e.key === 'R') actions.clearSelection();
+      else if (e.key === '+' || e.key === '=') actions.zoom(0.8);
+      else if (e.key === '-' || e.key === '_') actions.zoom(1.25);
+      else if (e.key === '1') actions.toggleLayer('physical');
+      else if (e.key === '2') actions.toggleLayer('spacetime');
+      else if (e.key === '3') actions.toggleLayer('information');
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+}
+
+export default function App() {
+  const view = useAtlas((s) => s.view);
+  const mode = useAtlas((s) => s.mode);
+  const reducedMotion = useAtlas((s) => s.reducedMotion);
+  const cinema = useAtlas((s) => s.cinema !== null);
+  const sound = useAtlas((s) => s.sound);
+  useEffect(() => {
+    void music.init();
+    document.title = `INTERSTELLAR — An Atlas of Spatial & Temporal Thresholds · ${CURRENT.id}`;
+  }, []);
+  // Lower the music while the synthesised sound effects play.
+  useEffect(() => music.setDuck(sound && view !== 'map'), [sound, view]);
+  const webgl = useMemo(hasWebGL, []);
+  useKeyboard();
+
+  return (
+    <div className={`app mode-${mode} view-${view} ${reducedMotion ? 'is-reduced' : ''}`}>
+      <main className="stage">
+        {webgl ? (
+          <MapBoundary>
+            <Suspense fallback={null}>
+              <WorldMap />
+            </Suspense>
+          </MapBoundary>
+        ) : (
+          <FlatFallback reason="WebGL is not available in this browser" />
+        )}
+      </main>
+
+      {view !== 'cinema' && <TopBar />}
+      {view === 'map' && mode !== 'analysis' && (
+        <>
+          <JourneyEntry />
+          <LayerLegend />
+          <CameraControls />
+          <Hint />
+        </>
+      )}
+      <InfoPanel />
+      <ConnectionTooltip />
+      <AnalysisMode />
+      {cinema && webgl && (
+        <Suspense fallback={<div className="cine-loading micro">Loading scene…</div>}>
+          <CinemaStage />
+        </Suspense>
+      )}
+      <ThresholdPlayer />
+      <Loader />
+    </div>
+  );
+}
