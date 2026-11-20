@@ -174,18 +174,20 @@ export function createPlanet(o: {
   sunDir: THREE.Vector3;
   atmosphere?: string;
   seed?: number;
+  /** Free Look close-ups: finer coastlines, clustered city lights, swirling clouds. */
+  detail?: boolean;
 }): THREE.Group {
   const g = new THREE.Group();
   const kindIndex = { earth: 0, ice: 1, saturn: 2, rock: 3 }[o.kind];
   const mat = new THREE.ShaderMaterial({
-    uniforms: { uSun: { value: o.sunDir.clone().normalize() }, uKind: { value: kindIndex }, uTime: { value: 0 }, uSeed: { value: o.seed ?? 1 } },
+    uniforms: { uSun: { value: o.sunDir.clone().normalize() }, uKind: { value: kindIndex }, uTime: { value: 0 }, uSeed: { value: o.seed ?? 1 }, uDetail: { value: o.detail ? 1 : 0 } },
     vertexShader: /* glsl */ `
       varying vec3 vN; varying vec3 vP; varying vec3 vW;
       void main() { vP = position; vN = normalize(mat3(modelMatrix) * normal); vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }
     `,
     fragmentShader: /* glsl */ `
       ${NOISE}
-      uniform vec3 uSun; uniform int uKind; uniform float uTime, uSeed;
+      uniform vec3 uSun; uniform int uKind; uniform float uTime, uSeed, uDetail;
       varying vec3 vN; varying vec3 vP; varying vec3 vW;
       void main() {
         vec3 n = normalize(vN);
@@ -202,6 +204,18 @@ export function createPlanet(o: {
           float clouds = smoothstep(0.55, 0.8, fbm3(p * 4.5 + vec3(uTime * 0.004, 0.0, 0.0)));
           col = mix(col, vec3(0.7), clouds * 0.8);
           vec3 night = vec3(1.0, 0.7, 0.35) * step(0.72, noise3(p * 90.0)) * isLand * 0.6;
+          if (uDetail > 0.5) {
+            // Finer land shading, swirling cloud bands and city lights in small clusters near coasts.
+            float coast = 1.0 - smoothstep(0.0, 0.06, abs(land - 0.49));
+            col = mix(ocean, ground * (0.8 + 0.4 * fbm3(p * 24.0)), isLand);
+            col = mix(col, vec3(0.08, 0.16, 0.24), coast * (1.0 - isLand) * 0.6);
+            float swirl = fbm3(p * 3.0 + fbm3(p * 6.0 + uTime * 0.002) * 1.5);
+            float cl = smoothstep(0.5, 0.78, swirl) * 0.85 + smoothstep(0.6, 0.9, fbm3(p * 14.0)) * 0.15;
+            col = mix(col, vec3(0.78), cl);
+            float cluster = smoothstep(0.55, 0.75, fbm3(p * 10.0 + 4.0)) * (0.5 + coast);
+            float town = pow(noise3(p * 700.0), 10.0) * 6.0 + pow(noise3(p * 240.0), 14.0) * 3.0;
+            night = vec3(1.0, 0.72, 0.38) * clamp(town * cluster, 0.0, 1.0) * isLand * (1.0 - cl) * 0.8;
+          }
           col = col * (0.02 + 1.15 * max(lit, 0.0)) * day + night * (1.0 - day);
         } else if (uKind == 1) {
           float f = fbm3(p * 4.0 + uSeed);

@@ -8,7 +8,8 @@ import type { Layer, NodeId, ThresholdId } from '../data/types';
  */
 
 export type Mode = 'explore' | 'journey' | 'analysis';
-export type View = 'map' | 'threshold' | 'cinema';
+// 'branch': an optional side branch (src/branches/*) is on screen; the map and cinema stage pause.
+export type View = 'map' | 'threshold' | 'cinema' | 'branch';
 export type Quality = 'high' | 'low';
 
 export type CameraCommand =

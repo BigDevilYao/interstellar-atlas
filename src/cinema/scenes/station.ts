@@ -126,6 +126,42 @@ export const buildStation: SceneBuilder = (ctx) => {
   const cap = new THREE.Mesh(new THREE.CircleGeometry(RAD, 96), new THREE.MeshBasicMaterial({ color: new THREE.Color(1.6, 1.65, 1.55) }));
   cap.position.z = -LEN + 220;
   scene.add(cap);
+  if (ctx.freeLook) {
+    // Free Look: the near end wall behind the opening shot — structural rings, spokes, lit windows and
+    // the glowing hub at the axis — softened by the same haze as the far end.
+    const nearCap = new THREE.Mesh(
+      new THREE.CircleGeometry(RAD, 128),
+      new THREE.ShaderMaterial({
+        uniforms: { uRad: { value: RAD }, uHaze: { value: new THREE.Color('#d6dccf') } },
+        vertexShader: /* glsl */ `varying vec2 vP; varying float vD; void main() { vP = position.xy; vec4 mv = modelViewMatrix * vec4(position, 1.0); vD = -mv.z; gl_Position = projectionMatrix * mv; }`,
+        fragmentShader: /* glsl */ `
+          ${NOISE}
+          uniform float uRad; uniform vec3 uHaze; varying vec2 vP; varying float vD;
+          void main() {
+            float r = length(vP) / uRad;
+            float a = atan(vP.y, vP.x);
+            vec3 col = mix(vec3(0.42, 0.44, 0.45), vec3(0.6, 0.62, 0.6), noise2(vP * 0.05));
+            float rings = smoothstep(0.012, 0.0, abs(fract(r * 7.0) - 0.5) - 0.48);
+            float spokes = smoothstep(0.02, 0.0, abs(fract(a / 6.2832 * 24.0) - 0.5) - 0.48);
+            col *= 1.0 - 0.35 * max(rings, spokes);
+            vec2 cell = vec2(floor(r * 28.0), floor(a / 6.2832 * 160.0));
+            float win = step(0.62, hash21(cell)) * step(0.25, r) * step(r, 0.92);
+            vec2 f = vec2(fract(r * 28.0), fract(a / 6.2832 * 160.0));
+            win *= step(0.3, f.x) * step(f.x, 0.7) * step(0.25, f.y) * step(f.y, 0.75);
+            col = mix(col, vec3(2.2, 2.0, 1.6), win * 0.8);
+            col = mix(col, vec3(4.0, 3.9, 3.5), smoothstep(0.08, 0.02, r));
+            col = mix(col, uHaze * 1.05, smoothstep(0.98, 1.0, r) * 0.5);
+            float f2 = pow(smoothstep(40.0, 2400.0, vD), 0.8);
+            gl_FragColor = vec4(mix(col, uHaze, f2 * 0.85), 1.0);
+          }
+        `,
+        side: THREE.DoubleSide,
+      }),
+    );
+    nearCap.position.z = 200;
+    nearCap.rotation.y = Math.PI;
+    scene.add(nearCap);
+  }
 
   const clouds = particles({
     count: hi ? 400 : 200,
@@ -154,6 +190,17 @@ export const buildStation: SceneBuilder = (ctx) => {
       { at: new THREE.Vector3(0, 0, -900), label: 'Axis light' },
       { at: new THREE.Vector3(60, -RAD + 20, -200), label: 'Fields and houses — the farm returns' },
     ],
+    constrainFreeLook(cam) {
+      // Free Look stays inside the habitat: above the fields and between the end walls.
+      const p = cam.position;
+      const rad = Math.hypot(p.x, p.y);
+      const maxR = RAD - 12;
+      if (rad > maxR) {
+        p.x *= maxR / rad;
+        p.y *= maxR / rad;
+      }
+      p.z = THREE.MathUtils.clamp(p.z, -2900, 180);
+    },
     update(t, _dt, k, free) {
       (clouds.material as THREE.ShaderMaterial).uniforms.uTime.value = t;
       if (!free) {

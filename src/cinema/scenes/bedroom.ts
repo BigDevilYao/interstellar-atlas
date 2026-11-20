@@ -106,6 +106,7 @@ function quilt() {
 
 export const buildBedroom: SceneBuilder = (ctx, variant) => {
   const adult = variant === 'adult';
+  const free = !!ctx.freeLook;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(adult ? '#0b0d12' : '#120d08');
   scene.fog = new THREE.FogExp2(adult ? '#2a2c34' : '#8a6a44', 0.018);
@@ -199,7 +200,8 @@ export const buildBedroom: SceneBuilder = (ctx, variant) => {
     `,
     fog: false,
   });
-  const sky = new THREE.Mesh(new THREE.PlaneGeometry(9, 4.5), skyMat);
+  // Free Look: a wider view outside so its edges never show through the window at steep angles.
+  const sky = new THREE.Mesh(free ? new THREE.PlaneGeometry(24, 12) : new THREE.PlaneGeometry(9, 4.5), skyMat);
   sky.position.set(X1 + 2.5, 1.6, wmz);
   sky.rotation.y = -Math.PI / 2;
   scene.add(sky);
@@ -216,6 +218,51 @@ export const buildBedroom: SceneBuilder = (ctx, variant) => {
   curtain.position.set(X1 - 0.08, 1.5, wz1 + 0.15);
   curtain.rotation.y = -Math.PI / 2;
   scene.add(curtain);
+
+  // ── Free Look: the rest of the room the cinematic shot never shows.
+  if (free) {
+    const wood = std('#5a3b24', { roughness: 0.6 });
+    const paint = std('#e9e2d2', { roughness: 0.7 });
+    // Door with frame and handle on the wall behind the bed.
+    const doorX = X0 + 1.9;
+    add(box(0.9, 2.05, 0.05, std('#d8cfbd', { roughness: 0.65 }), doorX, 1.025, Z1 - 0.02));
+    add(box(1.06, 0.08, 0.06, paint, doorX, 2.09, Z1 - 0.03));
+    add(box(0.08, 2.1, 0.06, paint, doorX - 0.49, 1.05, Z1 - 0.03));
+    add(box(0.08, 2.1, 0.06, paint, doorX + 0.49, 1.05, Z1 - 0.03));
+    for (const py of [0.55, 1.45]) add(box(0.66, 0.6, 0.015, std('#cfc5b2', { roughness: 0.7 }), doorX, py, Z1 - 0.05), false);
+    const knob = add(new THREE.Mesh(new THREE.SphereGeometry(0.035, 12, 8), std('#b8955a', { metalness: 0.8, roughness: 0.3 })));
+    knob.position.set(doorX + 0.36, 1.0, Z1 - 0.08);
+    add(box(W, 0.1, 0.03, std('#3a2a1e', { roughness: 0.7 }), 0, 0.05, Z1 - 0.015), false);
+    // Dresser with a lamp and a model rocket.
+    const dX = X1 - 0.9;
+    add(box(1.1, 0.85, 0.48, wood, dX, 0.425, Z1 - 0.3));
+    for (let i = 0; i < 3; i++) add(box(1.0, 0.22, 0.02, std('#6a4a30', { roughness: 0.55 }), dX, 0.16 + i * 0.27, Z1 - 0.545), false);
+    const lampBase = add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.3, 16), std('#7a6a50', { metalness: 0.4 })));
+    lampBase.position.set(dX - 0.3, 1.0, Z1 - 0.3);
+    const shade = add(new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.17, 0.2, 20, 1, true), std('#efe3c4', { side: THREE.DoubleSide, emissive: new THREE.Color(adult ? '#ffbf70' : '#000000'), emissiveIntensity: adult ? 0.6 : 0 })));
+    shade.position.set(dX - 0.3, 1.25, Z1 - 0.3);
+    const rocket = add(new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.36, 12), std('#e8e4dc', { roughness: 0.5 })));
+    rocket.position.set(dX + 0.3, 1.03, Z1 - 0.3);
+    // Framed pictures and a pinned map.
+    const frame = std('#3a2a1e', { roughness: 0.5 });
+    const pics: [number, number, number, number, string][] = [
+      [X0 + 0.9, 1.75, 0.5, 0.36, '#8a9aa0'],
+      [X0 + 1.55, 1.85, 0.34, 0.44, '#a08a6a'],
+      [X1 - 1.2, 1.7, 0.7, 0.45, '#6a7a8a'],
+    ];
+    pics.forEach(([x, y, w, h, c]) => {
+      add(box(w + 0.05, h + 0.05, 0.02, frame, x, y, Z1 - 0.02), false);
+      add(box(w, h, 0.01, std(c, { roughness: 0.8 }), x, y, Z1 - 0.035), false);
+    });
+    // Rag rug and a ceiling light.
+    const rug = add(new THREE.Mesh(new THREE.CircleGeometry(0.9, 40), std('#8a5a44', { roughness: 1 })), false);
+    rug.rotation.x = -Math.PI / 2;
+    rug.scale.set(1.3, 0.9, 1);
+    rug.position.set(0.1, 0.006, 1.2);
+    const fixture = add(new THREE.Mesh(new THREE.SphereGeometry(0.16, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2), std('#f2ecdc', { side: THREE.DoubleSide, emissive: new THREE.Color(adult ? '#ffdca0' : '#000000'), emissiveIntensity: adult ? 0.5 : 0 })), false);
+    fixture.rotation.x = Math.PI;
+    fixture.position.set(0, H - 0.02, 0.2);
+  }
 
   // ── Bookshelf
   const shelfX = 0.35;
@@ -388,13 +435,22 @@ export const buildBedroom: SceneBuilder = (ctx, variant) => {
     camera,
     exposure: adult ? 1.2 : 1.1,
     bloom: adult ? { strength: 0.6, radius: 0.45, threshold: 1.35 } : { strength: 0.45, radius: 0.35, threshold: 1.1 },
-    focus: lookShelf.clone(),
+    // Free Look pivots on the middle of the room, so turning around shows every wall (the shelf, the
+    // window, the door side); cinematic builds keep the shelf as their reference point.
+    focus: free ? new THREE.Vector3(0.1, 1.3, 0.1) : lookShelf.clone(),
     anchors: [
       { at: new THREE.Vector3(shelfX, sh + 0.05, sz), label: 'Bookshelf · the threshold wall' },
       { at: new THREE.Vector3(X1, wy1, wmz), label: 'Window · the dust storm enters' },
       { at: watchCenter.clone(), label: adult ? 'The watch · data channel' : 'The watch' },
       { at: new THREE.Vector3(0.1, 0.01, 0.55), label: 'Dust in binary bands' },
     ],
+    constrainFreeLook(cam) {
+      // Free Look stays inside the room, like a person standing in it; every direction stays open.
+      const m = 0.25;
+      cam.position.x = THREE.MathUtils.clamp(cam.position.x, X0 + m, X1 - m);
+      cam.position.y = THREE.MathUtils.clamp(cam.position.y, 0.35, H - 0.2);
+      cam.position.z = THREE.MathUtils.clamp(cam.position.z, Z0 + 0.6, Z1 - m);
+    },
     update(t, dt, k, free) {
       (dust.material as THREE.ShaderMaterial).uniforms.uTime.value = t;
       (shaft.material as THREE.ShaderMaterial).uniforms.uTime.value = t;

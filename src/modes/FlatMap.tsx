@@ -14,6 +14,11 @@ const LAYER_STROKE: Record<Layer, { stroke: string; dash?: string; width: number
   information: { stroke: '#a9c3e6', dash: '1 4', width: 1.6 },
 };
 
+/** Position of a node in a FlatMap of the given size (shared with the cinema minimap's hit areas). */
+export function flatPoint(id: NodeId, size: number): [number, number] {
+  return pt(id, size);
+}
+
 function pt(id: NodeId, size: number): [number, number] {
   const [x, y] = NODE_MAP[id].position;
   return [size / 2 + x * size * 0.42, size / 2 - y * size * 0.42];

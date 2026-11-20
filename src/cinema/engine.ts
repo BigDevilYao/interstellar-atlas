@@ -197,10 +197,10 @@ export class CinemaEngine {
 
   // ───────────────────────── scenes ─────────────────────────
 
-  private build(key: SceneKey, variant?: string): Live {
+  private build(key: SceneKey, variant?: string, freeLook = false): Live {
     let inst: SceneInstance;
     try {
-      inst = SCENE_BUILDERS[key]({ renderer: this.renderer, quality: this.quality, width: this.width, height: this.height }, variant);
+      inst = SCENE_BUILDERS[key]({ renderer: this.renderer, quality: this.quality, width: this.width, height: this.height, freeLook }, variant);
     } catch (err) {
       console.error(`[cinema] failed to build scene "${key}"`, err);
       inst = blankScene();
@@ -252,7 +252,7 @@ export class CinemaEngine {
     this.release(this.next);
     this.next = null;
     this.transition = null;
-    this.current = this.build(key, variant);
+    this.current = this.build(key, variant, true);
     this.chapters = [];
     this.chapterTime = 0;
     this.sceneDuration = duration;
@@ -413,6 +413,7 @@ export class CinemaEngine {
       this.chapterTime += dt;
       k = 0.5 - 0.5 * Math.cos((this.chapterTime / this.sceneDuration) * Math.PI);
       this.controls?.update();
+      this.current.inst.constrainFreeLook?.(this.current.inst.camera);
     }
 
     const motion = this.reducedMotion ? 0.25 : 1;

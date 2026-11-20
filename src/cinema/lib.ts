@@ -349,3 +349,186 @@ export function lightShaft(from: THREE.Vector3, to: THREE.Vector3, r0: number, r
   m.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), to.clone().sub(from).normalize());
   return m;
 }
+
+// ───────────────────────── Free Look environment helpers ─────────────────────────
+
+/**
+ * A flat disc in the XZ plane whose rings get geometrically wider with distance: dense near the centre,
+ * sparse at the horizon. Used for camera-following oceans and horizon-wide terrain.
+ */
+export function radialGrid(radius: number, rings: number, segments: number, firstRing = 1, maxStep = Infinity): THREE.BufferGeometry {
+  // Ring radii grow geometrically (dense near the centre); `maxStep` caps the spacing in the middle
+  // distance so features far away (ridges, waves) stay smooth.
+  const ratio = Math.pow(radius / firstRing, 1 / Math.max(1, rings - 1));
+  const radii: number[] = [];
+  let rad = firstRing;
+  while (rad < radius) {
+    radii.push(rad);
+    rad += Math.min(rad * (ratio - 1), maxStep);
+  }
+  radii.push(radius);
+  const pos: number[] = [0, 0, 0];
+  const idx: number[] = [];
+  for (const r of radii) {
+    for (let s = 0; s < segments; s++) {
+      const a = (s / segments) * Math.PI * 2;
+      pos.push(Math.cos(a) * r, 0, Math.sin(a) * r);
+    }
+  }
+  for (let s = 0; s < segments; s++) idx.push(0, 1 + ((s + 1) % segments), 1 + s);
+  for (let r = 0; r < radii.length - 1; r++) {
+    const a0 = 1 + r * segments;
+    const b0 = 1 + (r + 1) * segments;
+    for (let s = 0; s < segments; s++) {
+      const s1 = (s + 1) % segments;
+      idx.push(a0 + s, a0 + s1, b0 + s, a0 + s1, b0 + s1, b0 + s);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setIndex(idx);
+  g.computeVertexNormals();
+  return g;
+}
+
+/** Horizon-wide terrain: a radial grid displaced by a height function, centred on (cx, cz). */
+export function radialTerrain(
+  height: (x: number, z: number) => number,
+  o: { radius: number; rings: number; segments: number; firstRing?: number; maxStep?: number; cx?: number; cz?: number },
+): THREE.BufferGeometry {
+  const g = radialGrid(o.radius, o.rings, o.segments, o.firstRing ?? 2, o.maxStep);
+  const p = g.attributes.position as THREE.BufferAttribute;
+  const cx = o.cx ?? 0;
+  const cz = o.cz ?? 0;
+  for (let i = 0; i < p.count; i++) {
+    const x = p.getX(i) + cx;
+    const z = p.getZ(i) + cz;
+    p.setXYZ(i, x, height(x, z), z);
+  }
+  g.computeVertexNormals();
+  g.computeBoundingSphere();
+  return g;
+}
+
+/** Colour of the sky dome's horizon band (what fog should fade to for a seamless horizon). */
+export function horizonColor(hex: string): THREE.Color {
+  return new THREE.Color(hex).multiplyScalar(1.09);
+}
+
+/** Keep a camera above a surface: y ≥ surface(x, z) + clearance. */
+export function keepAbove(camera: THREE.Camera, surface: (x: number, z: number) => number, clearance: number): void {
+  const min = surface(camera.position.x, camera.position.z) + clearance;
+  if (camera.position.y < min) camera.position.y = min;
+}
+
+/**
+ * Overcast cloud layer on a dome around the camera (Free Look skies): drifting fbm clouds that thin out
+ * toward the horizon so they blend into the haze. Drawn behind everything (depth at the far plane).
+ */
+export function cloudDome(o: {
+  light: string;
+  shadow: string;
+  coverage?: number;
+  opacity?: number;
+  scale?: number;
+  speed?: number;
+  sunDir?: THREE.Vector3;
+}): THREE.Mesh {
+  const mat = new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    transparent: true,
+    depthWrite: false,
+    fog: false,
+    uniforms: {
+      uLight: { value: new THREE.Color(o.light) },
+      uShadow: { value: new THREE.Color(o.shadow) },
+      uCov: { value: o.coverage ?? 0.45 },
+      uOpacity: { value: o.opacity ?? 0.8 },
+      uScale: { value: o.scale ?? 1.6 },
+      uSpeed: { value: o.speed ?? 0.004 },
+      uSun: { value: (o.sunDir ?? new THREE.Vector3(0, 1, 0)).clone().normalize() },
+      uTime: { value: 0 },
+    },
+    vertexShader: /* glsl */ `
+      varying vec3 vDir;
+      void main() {
+        vDir = normalize(position);
+        vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        gl_Position = p.xyww;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      ${NOISE}
+      uniform vec3 uLight, uShadow, uSun; uniform float uCov, uOpacity, uScale, uSpeed, uTime;
+      varying vec3 vDir;
+      void main() {
+        vec3 d = normalize(vDir);
+        if (d.y <= 0.0) discard;
+        vec2 uv = d.xz / (d.y + 0.12) * uScale + vec2(uTime * uSpeed, uTime * uSpeed * 0.4);
+        float n = fbm2(uv) * 0.7 + fbm2(uv * 2.7 + 3.1) * 0.3;
+        float a = smoothstep(uCov, uCov + 0.28, n) * smoothstep(0.0, 0.22, d.y) * uOpacity;
+        float lit = 0.55 + 0.45 * smoothstep(uCov, 1.0, n) + 0.25 * pow(max(dot(d, uSun), 0.0), 6.0);
+        vec3 col = mix(uShadow, uLight, clamp(lit, 0.0, 1.0));
+        gl_FragColor = vec4(col, a);
+      }
+    `,
+  });
+  const m = new THREE.Mesh(new THREE.SphereGeometry(6000, 48, 24), mat);
+  m.frustumCulled = false;
+  m.renderOrder = -9;
+  return m;
+}
+
+/**
+ * Deep-space backdrop for Free Look: dense faint stars, a Milky Way band with dust lanes and a little
+ * nebular colour, drawn at the far plane behind everything (so there is no black void in any direction).
+ */
+export function milkyWay(o: { tilt?: THREE.Euler; intensity?: number; tint?: string } = {}): THREE.Mesh {
+  const rot = new THREE.Matrix3().setFromMatrix4(new THREE.Matrix4().makeRotationFromEuler(o.tilt ?? new THREE.Euler(0.9, 0.2, 0.4)));
+  const mat = new THREE.ShaderMaterial({
+    side: THREE.BackSide,
+    depthWrite: false,
+    fog: false,
+    uniforms: { uRot: { value: rot }, uI: { value: o.intensity ?? 1 }, uTint: { value: new THREE.Color(o.tint ?? '#c8b8ff') } },
+    vertexShader: /* glsl */ `
+      varying vec3 vDir;
+      void main() {
+        vDir = normalize(position);
+        vec4 p = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        gl_Position = p.xyww;
+      }
+    `,
+    fragmentShader: /* glsl */ `
+      ${NOISE}
+      uniform mat3 uRot; uniform float uI; uniform vec3 uTint;
+      varying vec3 vDir;
+      float stars(vec3 d, float scale, float density) {
+        vec3 p = d * scale;
+        vec3 c = floor(p);
+        float h = hash31(c);
+        vec3 f = fract(p) - 0.5;
+        float s = step(1.0 - density, h) * smoothstep(0.32, 0.0, length(f));
+        return s * (0.4 + 0.6 * hash31(c + 3.7));
+      }
+      void main() {
+        vec3 d = normalize(vDir);
+        vec3 g = uRot * d;
+        float lat = g.y;
+        float band = exp(-lat * lat / 0.035);
+        float core = exp(-lat * lat / 0.006) * (0.6 + 0.4 * fbm3(g * 3.0));
+        float dust = smoothstep(0.42, 0.7, fbm3(g * 7.0 + 2.0)) * exp(-lat * lat / 0.01);
+        float glow = band * (0.35 + 0.65 * fbm3(g * 4.0)) * (1.0 - dust * 0.85);
+        vec3 col = vec3(0.0);
+        col += vec3(0.75, 0.72, 0.68) * glow * 0.06 + vec3(1.0, 0.9, 0.75) * core * 0.055 * (1.0 - dust);
+        col += uTint * smoothstep(0.55, 0.85, fbm3(d * 2.2 + 9.0)) * 0.025;
+        float st = stars(d, 420.0, 0.012 + band * 0.04) * 0.9 + stars(d, 900.0, 0.02 + band * 0.08) * 0.45;
+        col += vec3(st) * mix(vec3(0.85, 0.9, 1.0), vec3(1.0, 0.88, 0.7), hash31(floor(d * 420.0) + 1.0));
+        gl_FragColor = vec4(col * uI, 1.0);
+      }
+    `,
+  });
+  const m = new THREE.Mesh(new THREE.SphereGeometry(5000, 48, 24), mat);
+  m.frustumCulled = false;
+  m.renderOrder = -11;
+  return m;
+}

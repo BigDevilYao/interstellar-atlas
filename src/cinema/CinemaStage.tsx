@@ -2,10 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { NODE_MAP } from '../data/nodes';
 import { THRESHOLD_MAP } from '../data/thresholds';
 import { SoundBridge } from '../lib/sound';
-import { FlatMap } from '../modes/FlatMap';
+import { MiniMap } from './MiniMap';
 import { MusicButton } from '../ui/MusicButton';
+import { StudioBranchEntry } from '../branches/studio/StudioBranchEntry';
 import { actions, getState, useAtlas } from '../state/store';
-import { CHAPTERS } from './chapters';
+import { CHAPTERS, chapterIndexForNode } from './chapters';
+import type { NodeId } from '../data/types';
 import { CinemaEngine } from './engine';
 
 /**
@@ -136,6 +138,15 @@ export default function CinemaStage() {
   const exit = useCallback(() => actions.backToMap(), []);
   const freeLook = useCallback(() => actions.openScene(CHAPTERS[index].node), [index]);
   const resumeJourney = useCallback(() => actions.startJourney(index), [index]);
+  // Minimap navigation: in the journey, jump to that place's chapter (the engine's own goto, with its
+  // time-lapse transition); in Free Look, open that place's scene (the World Map's own openScene).
+  const navigateTo = useCallback(
+    (id: NodeId) => {
+      if (journey) goto(chapterIndexForNode(id));
+      else actions.openScene(id);
+    },
+    [journey, goto],
+  );
   const diagramId = chapter.enter?.threshold ?? CHAPTERS[index + 1]?.enter?.threshold;
   const openDiagram = useCallback(() => {
     if (!diagramId) return;
@@ -262,11 +273,8 @@ export default function CinemaStage() {
         <p className="subtitle subtitle--hint">Drag to look around · scroll to move closer · labels mark what you are seeing</p>
       )}
 
-      {/* minimap */}
-      <figure className="hud hud--map" aria-label="Position on the World Map">
-        <FlatMap size={150} layers={['physical']} showLabels={false} highlight={chapter.node} title="Position on the World Map" />
-        <figcaption className="micro">{node?.name}</figcaption>
-      </figure>
+      {/* minimap — expands on hover; nodes open their scenes */}
+      <MiniMap highlight={chapter.node} caption={node?.name} onNavigate={navigateTo} />
 
       {/* bottom: transport */}
       <footer className="hud hud--bottom">
@@ -345,6 +353,7 @@ export default function CinemaStage() {
               Return to the atlas
             </button>
           </div>
+          <StudioBranchEntry />
         </div>
       )}
     </section>

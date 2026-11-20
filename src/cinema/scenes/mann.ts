@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { NOISE } from '../glsl';
-import { disposeScene, easeInOut, handheld, particles, ridged, skyDome, std, terrain } from '../lib';
+import { disposeScene, easeInOut, handheld, horizonColor, keepAbove, particles, radialTerrain, ridged, rng, skyDome, std, terrain } from '../lib';
 import type { SceneBuilder } from '../types';
 import { createRanger } from './parts';
 
@@ -9,9 +9,13 @@ import { createRanger } from './parts';
  */
 export const buildMann: SceneBuilder = (ctx) => {
   const hi = ctx.quality === 'high';
+  const free = !!ctx.freeLook;
   const scene = new THREE.Scene();
   scene.fog = new THREE.Fog('#aebfcc', 150, 2600);
-  const camera = new THREE.PerspectiveCamera(46, 1, 0.5, 8000);
+  // Free Look: the haze reaches the horizon and matches the sky there.
+  const fogCol = free ? horizonColor('#c9d6df').lerp(new THREE.Color('#aebfcc'), 0.4) : new THREE.Color('#aebfcc');
+  if (free) scene.fog = new THREE.Fog(fogCol, 400, 9000);
+  const camera = new THREE.PerspectiveCamera(46, 1, 0.5, free ? 20000 : 8000);
 
   const sunDir = new THREE.Vector3(-0.45, 0.35, -0.82).normalize();
   scene.add(skyDome({ top: '#3d5a78', horizon: '#c9d6df', bottom: '#93a6b4', sunDir, sunColor: '#f4f8ff', sunSize: 0.05, sunIntensity: 4, hazeHeight: 0.2, radius: 7000 }));
@@ -21,7 +25,15 @@ export const buildMann: SceneBuilder = (ctx) => {
     const r = ridged(x * 0.004, z * 0.004, 5) * 120 + ridged(x * 0.02 + 3, z * 0.02, 3) * 14;
     return r - 40;
   };
-  const geo = terrain(2400, hi ? 320 : 200, H);
+  // Free Look: the same ice continues to the horizon, rising into a ring of distant ridges and peaks.
+  const Hfar = (x: number, z: number) => {
+    const r = Math.hypot(x, z + 400);
+    const far = Math.min(1, Math.max(0, (r - 1400) / 2600));
+    return H(x, z) + far * far * (ridged(x * 0.0009 + 11, z * 0.0009 - 5, 4) * 620 + ridged(x * 0.003, z * 0.003, 3) * 90);
+  };
+  const geo = free
+    ? radialTerrain(Hfar, { radius: 14000, rings: hi ? 150 : 110, segments: hi ? 480 : 320, firstRing: 3, maxStep: hi ? 45 : 70, cz: -400 })
+    : terrain(2400, hi ? 320 : 200, H);
   const pos = geo.attributes.position as THREE.BufferAttribute;
   const nor = geo.attributes.normal as THREE.BufferAttribute;
   const cols = new Float32Array(pos.count * 3);
@@ -45,22 +57,25 @@ export const buildMann: SceneBuilder = (ctx) => {
   // Frozen clouds: stacked translucent slabs with crisp edges.
   const cloudMat = (seed: number) =>
     new THREE.ShaderMaterial({
-      uniforms: { uSeed: { value: seed }, uSun: { value: sunDir }, uFog: { value: new THREE.Color('#aebfcc') } },
+      uniforms: { uSeed: { value: seed }, uSun: { value: sunDir }, uFog: { value: fogCol }, uFogFar: { value: free ? 7000 : 2600 }, uRound: { value: free ? 1 : 0 } },
       vertexShader: /* glsl */ `varying vec2 vUv; varying float vD; varying vec3 vW; void main() { vUv = uv; vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vec4 mv = viewMatrix * w; vD = -mv.z; gl_Position = projectionMatrix * mv; }`,
       fragmentShader: /* glsl */ `
         ${NOISE}
-        uniform float uSeed; uniform vec3 uFog; varying vec2 vUv; varying float vD; varying vec3 vW;
+        uniform float uSeed; uniform vec3 uFog; uniform float uFogFar; uniform float uRound; varying vec2 vUv; varying float vD; varying vec3 vW;
         void main() {
           vec2 p = vUv * 3.0 + uSeed;
           float n = fbm2(p) + 0.35 * fbm2(p * 3.0);
           float edge = smoothstep(0.5, 0.54, n);
           float body = smoothstep(0.52, 0.9, n);
           float fade = smoothstep(0.0, 0.15, vUv.x) * smoothstep(1.0, 0.85, vUv.x) * smoothstep(0.0, 0.15, vUv.y) * smoothstep(1.0, 0.85, vUv.y);
-          float a = edge * fade;
+          // Free Look: an organic, noise-shaped outline instead of the slab's rectangle (seen from above/below).
+          float rr = length(vUv - 0.5) * 2.0 + (fbm2(vUv * 4.0 + uSeed * 1.7) - 0.5) * 0.55;
+          float roundFade = 1.0 - smoothstep(0.55, 0.95, rr);
+          float a = edge * mix(fade, roundFade, uRound);
           if (a < 0.02) discard;
           float lit = 0.55 + 0.45 * smoothstep(0.52, 0.75, n);
           vec3 col = mix(vec3(0.42, 0.52, 0.62), vec3(0.95, 0.97, 1.0), body) * lit;
-          float f = smoothstep(150.0, 2600.0, vD);
+          float f = smoothstep(150.0, uFogFar, vD);
           gl_FragColor = vec4(mix(col, uFog, f * 0.8), a * 0.95);
         }
       `,
@@ -76,6 +91,16 @@ export const buildMann: SceneBuilder = (ctx) => {
     [380, 55, -300, 420, 4],
     [-420, 110, -700, 600, 5],
   ];
+  if (free) {
+    // Free Look: the frozen cloud decks surround the valley in every direction, at several heights.
+    const r = rng(41);
+    for (let i = 0; i < 16; i++) {
+      const a = (i / 16) * Math.PI * 2 + r() * 0.3;
+      // Beyond the orbit range (≤ ~1 km from the focus), so the camera never flies into a deck.
+      const d = 1400 + r() * 2600;
+      placements.push([Math.cos(a) * d, 70 + r() * 230, -400 + Math.sin(a) * d, 600 + r() * 1000, 6 + i]);
+    }
+  }
   placements.forEach(([x, y, z, s, seed]) => {
     for (let layer = 0; layer < 10; layer++) {
       const m = new THREE.Mesh(new THREE.PlaneGeometry(s, s * 0.7), cloudMat(seed + layer * 0.07));
@@ -125,6 +150,9 @@ export const buildMann: SceneBuilder = (ctx) => {
       { at: hab.position.clone().add(new THREE.Vector3(0, 5, 0)), label: 'Mann’s shelter' },
       { at: new THREE.Vector3(200, 40, -500), label: 'Ammonia ice ridges' },
     ],
+    constrainFreeLook(cam) {
+      keepAbove(cam, free ? Hfar : H, 8);
+    },
     update(t, _dt, k, free) {
       (snow.material as THREE.ShaderMaterial).uniforms.uTime.value = t;
       const e = easeInOut(k);

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { disposeScene, easeInOut, fbm, handheld, particles, rng, skyDome, std, terrain } from '../lib';
+import { disposeScene, easeInOut, fbm, handheld, horizonColor, keepAbove, particles, radialTerrain, ridged, rng, skyDome, std, terrain } from '../lib';
 import type { SceneBuilder } from '../types';
 import { createRanger } from './parts';
 
@@ -9,9 +9,12 @@ import { createRanger } from './parts';
  */
 export const buildEdmunds: SceneBuilder = (ctx) => {
   const hi = ctx.quality === 'high';
+  const free = !!ctx.freeLook;
   const scene = new THREE.Scene();
   scene.fog = new THREE.Fog('#c7896a', 120, 2600);
-  const camera = new THREE.PerspectiveCamera(44, 1, 0.3, 9000);
+  // Free Look: dusk haze carried to the horizon and matched to the sky's horizon glow.
+  if (free) scene.fog = new THREE.Fog(horizonColor('#f0a070').lerp(new THREE.Color('#c7896a'), 0.55), 400, 10000);
+  const camera = new THREE.PerspectiveCamera(44, 1, 0.3, free ? 20000 : 9000);
 
   const sunDir = new THREE.Vector3(0.75, 0.1, -0.65).normalize();
   scene.add(skyDome({ top: '#2c4a5e', horizon: '#f0a070', bottom: '#5a3426', sunDir, sunColor: '#ffd2a0', sunSize: 0.06, sunIntensity: 10, hazeHeight: 0.16, radius: 8000, stars: 0.6 }));
@@ -23,7 +26,17 @@ export const buildEdmunds: SceneBuilder = (ctx) => {
     const camp = Math.exp(-((x - 10) ** 2 + (z + 120) ** 2) / 9000);
     return (dunes + rocky + Math.min(mesa, 260)) * (1 - camp * 0.9) - 20;
   };
-  const geo = terrain(4000, hi ? 300 : 180, H);
+  // Free Look: the same desert to the horizon, with mesas and a far range of eroded mountains.
+  const Hfar = (x: number, z: number) => {
+    const r = Math.hypot(x - 10, z + 120);
+    const far = Math.min(1, Math.max(0, (r - 1800) / 3200));
+    const range = ridged(x * 0.0006 + 3, z * 0.0006 + 8, 4) * 900 + ridged(x * 0.0025, z * 0.0025 + 2, 3) * 120;
+    const tableTop = Math.min(1, Math.max(0, fbm(x * 0.0009 + 21, z * 0.0009, 3) - 0.5) * 6) * 320;
+    return H(x, z) + far * far * Math.max(range, tableTop);
+  };
+  const geo = free
+    ? radialTerrain(Hfar, { radius: 14000, rings: hi ? 150 : 110, segments: hi ? 480 : 320, firstRing: 2, maxStep: hi ? 45 : 70, cx: 10, cz: -120 })
+    : terrain(4000, hi ? 300 : 180, H);
   const pos = geo.attributes.position as THREE.BufferAttribute;
   const nor = geo.attributes.normal as THREE.BufferAttribute;
   const cols = new Float32Array(pos.count * 3);
@@ -79,6 +92,26 @@ export const buildEdmunds: SceneBuilder = (ctx) => {
   rocks.castShadow = true;
   rocks.receiveShadow = true;
   scene.add(rocks);
+  if (free) {
+    // Free Look: scattered boulders all around the camp, not only in the cinematic field of view.
+    const ring = new THREE.InstancedMesh(rockGeo, rocks.material as THREE.Material, hi ? 900 : 450);
+    const rr = rng(77);
+    for (let i = 0; i < ring.count; i++) {
+      const a = rr() * Math.PI * 2;
+      const d = 60 + Math.pow(rr(), 0.7) * 900;
+      const x = 10 + Math.cos(a) * d;
+      const z = -120 + Math.sin(a) * d;
+      const sz = 0.4 + Math.pow(rr(), 3) * 7;
+      mm.compose(
+        new THREE.Vector3(x, Hfar(x, z) + sz * 0.05, z),
+        new THREE.Quaternion().setFromEuler(new THREE.Euler(rr() * 3, rr() * 3, rr() * 3)),
+        new THREE.Vector3(sz, sz * (0.5 + rr() * 0.6), sz * (0.7 + rr() * 0.5)),
+      );
+      ring.setMatrixAt(i, mm);
+    }
+    ring.receiveShadow = true;
+    scene.add(ring);
+  }
 
   // The camp.
   const camp = new THREE.Group();
@@ -152,6 +185,9 @@ export const buildEdmunds: SceneBuilder = (ctx) => {
       { at: camp.position.clone().add(new THREE.Vector3(18, 3.6, 12)), label: 'Edmunds’ marker' },
       { at: lander.position.clone().add(new THREE.Vector3(0, 3, 0)), label: 'Lander' },
     ],
+    constrainFreeLook(cam) {
+      keepAbove(cam, free ? Hfar : H, 2.5);
+    },
     update(t, _dt, k, free) {
       (dust.material as THREE.ShaderMaterial).uniforms.uTime.value = t;
       flag.rotation.y = Math.sin(t * 1.4) * 0.25;

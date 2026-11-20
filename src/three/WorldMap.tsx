@@ -10,6 +10,7 @@ import { OrbitalDots } from './OrbitalDots';
 import { SphereStructure } from './SphereStructure';
 import { Starfield } from './Starfield';
 import { Trajectories } from './Trajectories';
+import StudioMapBranch from '../branches/studio/map/StudioMapBranch';
 
 /** Controlled mouse parallax: the whole instrument leans gently toward the pointer. */
 function Parallax({ children }: { children: ReactNode }) {
@@ -55,6 +56,7 @@ export default function WorldMap() {
             <Trajectories />
             <Gargantua />
             <NodeMarkers />
+            <StudioMapBranch />
           </Parallax>
         </Suspense>
         <OrbitControls

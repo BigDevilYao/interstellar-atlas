@@ -8,6 +8,9 @@ import type { SceneBuilder } from '../types';
  */
 export const buildTesseract: SceneBuilder = (ctx) => {
   const hi = ctx.quality === 'high';
+  // Free Look: the lattice also continues behind the opening view and further to the sides.
+  const free = !!ctx.freeLook;
+  const K0 = free ? -8 : -2;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color('#0a0603');
   scene.fog = new THREE.FogExp2('#1c1006', 0.026);
@@ -27,7 +30,7 @@ export const buildTesseract: SceneBuilder = (ctx) => {
   const m = new THREE.Matrix4();
   for (let i = -NI; i <= NI; i++)
     for (let j = -NJ; j <= NJ; j++)
-      for (let k = -2; k <= NK; k++) {
+      for (let k = K0; k <= NK; k++) {
         const x = i * CX;
         const y = j * CY;
         const z = -k * CZ;
@@ -45,9 +48,10 @@ export const buildTesseract: SceneBuilder = (ctx) => {
   const bookC: THREE.Color[] = [];
   const shelfM: THREE.Matrix4[] = [];
   const palette = ['#7a3a1e', '#a0703a', '#4a2a14', '#c49a5a', '#5a3a1a', '#8a5a2a', '#d8b07a'];
-  for (let i = -2; i <= 2; i++)
+  const SI = free ? 3 : 2;
+  for (let i = -SI; i <= SI; i++)
     for (let j = -2; j <= 2; j++)
-      for (let k = -1; k <= (hi ? 7 : 5); k += 1) {
+      for (let k = free ? -4 : -1; k <= (hi ? (free ? 8 : 7) : 5); k += 1) {
         if (r() < 0.3) continue;
         const ox = i * CX + 0.3;
         const oy = j * CY + 0.25;
@@ -99,7 +103,7 @@ export const buildTesseract: SceneBuilder = (ctx) => {
   const offs: number[] = [];
   const phases: number[] = [];
   for (let i = -NI; i <= NI; i++)
-    for (let k = -1; k <= NK; k += 1) {
+    for (let k = free ? -6 : -1; k <= NK; k += 1) {
       if (r() < 0.55) continue;
       offs.push(i * CX + 0.5 + r() * 3, 0, -k * CZ - 0.6 - r() * 2.5);
       phases.push(r());

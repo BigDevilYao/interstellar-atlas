@@ -11,6 +11,8 @@ import { JourneyEntry } from './ui/JourneyEntry';
 import { Loader } from './ui/Loader';
 import { CameraControls, Hint, LayerLegend } from './ui/MapHud';
 import { TopBar } from './ui/TopBar';
+import { StudioBranchLayer } from './branches/studio/StudioBranchLayer';
+import { MobileLayer } from './mobile/MobileLayer';
 
 // The 3D World Map is code-split so the shell paints immediately.
 const WorldMap = lazy(() => import('./three/WorldMap'));
@@ -128,6 +130,8 @@ export default function App() {
         </Suspense>
       )}
       <ThresholdPlayer />
+      {webgl && <StudioBranchLayer />}
+      <MobileLayer />
       <Loader />
     </div>
   );

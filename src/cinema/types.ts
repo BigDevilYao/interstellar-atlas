@@ -20,6 +20,12 @@ export interface SceneCtx {
   quality: 'high' | 'low';
   width: number;
   height: number;
+  /**
+   * True when the scene is built for Free Look (orbit) mode. Builders use it to add environment that only
+   * matters when the viewer can look in any direction (horizon-wide terrain and sea, ceilings, distant
+   * scenery). Cinematic (journey) builds pass false, so their frames are unchanged.
+   */
+  freeLook?: boolean;
 }
 
 export interface SceneAnchor {
@@ -39,6 +45,11 @@ export interface SceneInstance {
   focus: THREE.Vector3;
   /** Optional labelled points of interest (free-look annotations). */
   anchors?: SceneAnchor[];
+  /**
+   * Free Look only: keep the orbiting camera physically plausible (above ground or water, inside a room).
+   * Called after each orbit update; may move `camera.position`. Every viewing direction stays available.
+   */
+  constrainFreeLook?(camera: THREE.PerspectiveCamera): void;
   update(t: number, dt: number, k: number, free: boolean): void;
   /** Optional off-screen work before the main render (e.g. half-resolution ray marching). */
   preRender?(renderer: THREE.WebGLRenderer): void;

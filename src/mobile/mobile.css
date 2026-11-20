@@ -1,0 +1,177 @@
+/*
+ * Mobile layer (v1.2). Every rule here sits behind a touch-screen media query
+ * — (hover: none) and (pointer: coarse) — so desktop browsers never match it and the desktop
+ * layout is untouched. Phones: portrait = width ≤ 860 px, landscape = height ≤ 500 px.
+ */
+
+@media (hover: none) and (pointer: coarse) {
+  /* Notches and rounded corners (needs viewport-fit=cover). */
+  :root {
+    --pad: max(clamp(16px, 2.4vw, 36px), env(safe-area-inset-left), env(safe-area-inset-right));
+  }
+
+  .topbar {
+    padding-top: max(var(--pad), env(safe-area-inset-top));
+  }
+
+  .cine .hud--bottom {
+    bottom: calc(7vh + 14px + env(safe-area-inset-bottom));
+  }
+
+  .cine--scene .hud--bottom {
+    bottom: calc(var(--pad) + env(safe-area-inset-bottom));
+  }
+
+  /* Finger-sized controls (the existing ones are 32 px). */
+  .hctl {
+    height: 40px;
+    min-width: 40px;
+  }
+
+  /* World Map nodes: a slightly larger invisible tap area around each marker. */
+  .node__hit::after {
+    content: '';
+    position: absolute;
+    inset: -7px;
+    border-radius: 50%;
+  }
+
+  /* The minimap's compact box is scaled; only the visible diagram takes touches. */
+  .cine .hud--map.mm {
+    pointer-events: none;
+  }
+
+  .cine .hud--map.mm .mm__stage {
+    pointer-events: auto;
+  }
+
+  .cine .hud--map.mm figcaption {
+    text-align: right;
+  }
+
+  /* No accidental text selection or iOS callouts while dragging the scenes. */
+  .cine,
+  .canvas-wrap,
+  .sb {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+}
+
+/* ── Phones, portrait ── */
+@media (hover: none) and (pointer: coarse) and (max-width: 860px) and (orientation: portrait) {
+  /* The minimap was hidden on narrow screens; on phones it returns, compact, above the subtitles. */
+  .cine .hud--map.mm {
+    display: block;
+    --mm-c: 0.62;
+    right: var(--pad);
+    bottom: calc(7vh + 200px + env(safe-area-inset-bottom));
+  }
+
+  .cine--scene .hud--map.mm {
+    bottom: calc(var(--pad) + 190px + env(safe-area-inset-bottom));
+  }
+
+  .cine .hud__title {
+    font-size: clamp(22px, 7.4vw, 34px);
+  }
+
+  .cine .hud__place {
+    font-size: 10px;
+  }
+
+  .entry {
+    bottom: calc(var(--pad) + env(safe-area-inset-bottom));
+  }
+}
+
+/* ── Phones, landscape (short screens) ── */
+@media (hover: none) and (pointer: coarse) and (max-height: 500px) {
+  /* Telemetry would sit on top of the minimap here (as on narrow screens, it is left out). */
+  .cine .hud--tr {
+    display: none;
+  }
+
+  .cine .hud--map.mm {
+    display: block;
+    --mm-c: 0.62;
+  }
+
+  .cine .hud--tl {
+    top: calc(7vh + 10px);
+  }
+
+  .cine--scene .hud--tl {
+    top: var(--pad);
+  }
+
+  .cine .hud__title {
+    font-size: clamp(20px, 6vh, 30px);
+  }
+
+  .cine .subtitle {
+    bottom: calc(7vh + 84px + env(safe-area-inset-bottom));
+    font-size: 13px;
+  }
+
+  .cine .hud--bottom {
+    gap: 6px;
+  }
+
+  /* World Map: the journey card goes to the bottom-left corner, as on narrow screens. */
+  .entry {
+    top: auto;
+    bottom: calc(var(--pad) + env(safe-area-inset-bottom));
+    left: var(--pad);
+    width: min(250px, 34vw);
+    padding: 10px 12px;
+    transform: none;
+    animation: none;
+  }
+
+  .entry.is-tucked,
+  .entry.is-tucked:hover {
+    display: none;
+  }
+
+  .entry__route {
+    display: none;
+  }
+
+  .mode-explore.view-map .legend,
+  .mode-explore.view-map .hint {
+    display: none;
+  }
+
+  .topbar {
+    padding-bottom: 0;
+  }
+}
+
+/* Optional, dismissible suggestion to turn the phone sideways in the cinematic views. */
+.rotate-hint {
+  position: fixed;
+  z-index: 130;
+  left: 50%;
+  top: calc(7vh + 8px + env(safe-area-inset-top));
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--ink-2);
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid var(--line);
+  backdrop-filter: blur(8px);
+  animation: subIn 0.8s 1.2s var(--ease) both;
+}
+
+.rotate-hint__icon {
+  color: var(--gold);
+}

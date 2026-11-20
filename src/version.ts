@@ -15,6 +15,49 @@ export const REVISIONS_URL = 'https://claude.ai/artifact/1qXKYVF8pUWoBZ9azihLx6'
 
 export const REVISIONS: Revision[] = [
   {
+    id: 'scene-refinement-v1.2-mobile-release',
+    date: '2026-11-19',
+    title: 'Mobile release (published)',
+    url: 'https://interstellar-atlas-eta.vercel.app/',
+    notes: [
+      'Release of scene-refinement-v1.1.1 (Free Look environments, the UCLA Studio branch, the interactive minimap) to the public website.',
+      'Phones: safe-area padding, finger-sized controls, the minimap shown compact and opened by tap (with a close control), a lighter render path for the Studio branch, and an optional "turn sideways" tip. Desktop layout and behaviour unchanged.',
+    ],
+  },
+  {
+    id: 'scene-refinement-v1.1.1-interactive-minimap',
+    date: '2026-11-19',
+    title: 'Interactive minimap (review — not published)',
+    url: '',
+    notes: [
+      'Local review build on branch feature/scene-refinement-v1.1.1-interactive-minimap, on top of scene-refinement-v1.1-studio-branch. The published site is unchanged.',
+      'The cinema HUD minimap expands on hover (toward the upper left), shows each scene’s name beside its node, and opens that scene on click: the chapter in the Guided Journey, the scene in Free Look.',
+      'Compact minimap, scenes, chapters, transitions, camera paths and the Studio branch are unchanged.',
+    ],
+  },
+  {
+    id: 'scene-refinement-v1.1-studio-branch',
+    date: '2026-11-18',
+    title: 'Studio branch (review — not published)',
+    url: '',
+    notes: [
+      'Local review build on branch feature/scene-refinement-v1.1-studio-branch, on top of scene-refinement-v1. The published site is unchanged.',
+      'Adds an optional side branch: from the journey’s end card or the World Map’s “UCLA Studio” node — printer → touchscreen → UCLA architecture studio → screen → Murph’s Room → back into the Atlas.',
+      'All existing scenes, chapters, transitions, camera paths, diagrams, Guided Journey and Analysis are unchanged.',
+    ],
+  },
+  {
+    id: 'scene-refinement-v1',
+    date: '2026-10-31',
+    title: 'Free Look environments (review — not published)',
+    url: 'https://claude.ai/artifact/FRUihGssebV1CKgYM84zY5',
+    notes: [
+      'Review build on branch scene-refinement-v1. The published site is unchanged.',
+      'Free Look only: every scene is completed for looking around — horizon-wide ocean, ice, desert and farmland, full skies, enclosed interiors, deep-space backdrops.',
+      'Cinematic chapters, transitions, camera paths, timing, diagrams, Guided Journey and Analysis are unchanged (Free Look builds its scene separately).',
+    ],
+  },
+  {
     id: 'v0.6',
     date: '2026-10-28',
     title: 'Add your own music',

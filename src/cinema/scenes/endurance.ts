@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { disposeScene, easeInOut, particles, rng, seg, starSphere } from '../lib';
+import { disposeScene, easeInOut, milkyWay, particles, rng, seg, starSphere } from '../lib';
 import type { SceneBuilder } from '../types';
 import { createEndurance, createPlanet, createRanger, createSun } from './parts';
 
@@ -10,8 +10,11 @@ import { createEndurance, createPlanet, createRanger, createSun } from './parts'
 export const buildEndurance: SceneBuilder = (ctx, variant) => {
   const docking = variant === 'docking';
   const hi = ctx.quality === 'high';
+  const free = !!ctx.freeLook;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color('#000000');
+  // Free Look: the full sky around the ship (Milky Way, dense faint stars) instead of near-black space.
+  if (free) scene.add(milkyWay({ tilt: new THREE.Euler(1.1, 0.3, 0.6), intensity: docking ? 0.8 : 1 }));
   const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 6000);
 
   const sunDir = new THREE.Vector3(docking ? -0.3 : 0.75, docking ? 0.35 : 0.25, docking ? -0.9 : -0.6).normalize();
@@ -20,10 +23,16 @@ export const buildEndurance: SceneBuilder = (ctx, variant) => {
   sunSprite.position.copy(sunDir).multiplyScalar(2800);
   scene.add(sunSprite);
 
-  const planet = createPlanet({ radius: 900, kind: docking ? 'ice' : 'earth', sunDir, atmosphere: docking ? '#a8c8ff' : '#5a9cff', seed: docking ? 4 : 1 });
+  const planet = createPlanet({ radius: 900, kind: docking ? 'ice' : 'earth', sunDir, atmosphere: docking ? '#a8c8ff' : '#5a9cff', seed: docking ? 4 : 1, detail: free });
   planet.position.set(0, -960, -260);
   planet.rotation.z = 0.25;
   scene.add(planet);
+  if (free && !docking) {
+    // The Moon, far off over Earth's limb.
+    const moon = createPlanet({ radius: 40, kind: 'rock', sunDir, seed: 9 });
+    moon.position.set(-1400, 260, -2300);
+    scene.add(moon);
+  }
 
   const sun = new THREE.DirectionalLight(docking ? '#eaf2ff' : '#fff4e2', 3.2);
   sun.position.copy(sunDir).multiplyScalar(60);

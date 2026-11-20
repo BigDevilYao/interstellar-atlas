@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { NOISE } from '../glsl';
-import { addWind, box, canvasTexture, disposeScene, easeInOut, handheld, particles, rng, seg, skyDome, std } from '../lib';
+import { addWind, box, canvasTexture, disposeScene, easeInOut, handheld, horizonColor, keepAbove, particles, rng, seg, skyDome, std } from '../lib';
 import type { SceneBuilder } from '../types';
 
 /**
@@ -74,11 +74,143 @@ function siding() {
   });
 }
 
+/**
+ * Free Look farmland: the canopy plane becomes a lit patchwork of fields (corn, drying corn, harvested,
+ * fallow) separated by section-line dirt roads, with crop rows that follow each field.
+ */
+function farmlandMaterial(sunDir: THREE.Vector3, fog: THREE.Color): THREE.ShaderMaterial {
+  return new THREE.ShaderMaterial({
+    uniforms: { uSun: { value: sunDir }, fogColor: { value: fog }, uTime: { value: 0 } },
+    vertexShader: /* glsl */ `varying vec3 vW; varying float vD; void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vec4 mv = viewMatrix * w; vD = -mv.z; gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: /* glsl */ `
+      ${NOISE}
+      uniform vec3 fogColor; uniform vec3 uSun; uniform float uTime; varying vec3 vW; varying float vD;
+      void main() {
+        if (abs(vW.x) < 37.0 && vW.z > -75.0 && vW.z < 15.0) discard;
+        // Section grid: 160 m fields, 6 m dirt roads every 4 fields.
+        vec2 q = vW.xz + vec2(37.0, -15.0);
+        vec2 cell = floor(q / 160.0);
+        vec2 f = fract(q / 160.0) * 160.0;
+        float h = hash21(cell);
+        float rowAxis = step(0.5, hash21(cell + 7.1));
+        float rows = 0.5 + 0.5 * sin((rowAxis > 0.5 ? q.x : q.y) * 5.5);
+        float n = fbm2(q * 0.06 + vec2(uTime * 0.04, 0.0));
+        float n2 = fbm2(q * 0.012 + 3.0);
+        // Matched to the instanced corn: late-season, dusty, more ochre than green.
+        vec3 corn = mix(vec3(0.17, 0.15, 0.06), vec3(0.29, 0.24, 0.1), n);
+        vec3 dry = mix(vec3(0.25, 0.2, 0.08), vec3(0.36, 0.28, 0.12), n);
+        vec3 stubble = mix(vec3(0.24, 0.19, 0.11), vec3(0.32, 0.25, 0.15), n);
+        vec3 dirt = mix(vec3(0.2, 0.15, 0.09), vec3(0.27, 0.2, 0.12), n);
+        vec3 col = h < 0.5 ? corn : h < 0.68 ? dry : h < 0.85 ? stubble : dirt;
+        // Rows fade out with distance (no moiré stripes on far fields).
+        float rowAmt = (h < 0.68 ? 0.16 : 0.08) * (1.0 - smoothstep(15.0, 80.0, vD));
+        col *= (1.0 - rowAmt) + rowAmt * rows;
+        // Fake canopy relief lit by the low sun, and large-scale variation.
+        float relief = (fbm2(q * 0.35) - 0.5) * 0.5;
+        col *= 0.82 + 0.3 * clamp(relief + uSun.y, 0.0, 1.0);
+        col *= 0.85 + 0.3 * n2;
+        // Field margins and section roads.
+        float edge = min(min(f.x, 160.0 - f.x), min(f.y, 160.0 - f.y));
+        col = mix(col, vec3(0.3, 0.24, 0.15), 1.0 - smoothstep(0.8, 2.2, edge));
+        vec2 rq = mod(q, 640.0);
+        float road = 1.0 - smoothstep(2.5, 3.5, min(abs(rq.x - 320.0), abs(rq.y - 320.0)));
+        col = mix(col, vec3(0.4, 0.33, 0.22), road);
+        float fg = clamp(pow(smoothstep(40.0, 1300.0, vD), 0.75), 0.0, 1.0);
+        gl_FragColor = vec4(mix(col, fogColor, fg), 1.0);
+      }
+    `,
+  });
+}
+
+/** Free Look surroundings: neighbouring farmsteads, windbreak tree lines and a road with power poles. */
+function surroundings(hi: boolean): THREE.Group {
+  const g = new THREE.Group();
+  const r = rng(91);
+  const wall = std('#d9d2c4', { roughness: 0.85 });
+  const barnM = std('#6e3324', { roughness: 0.9 });
+  const roofM = std('#45403a', { roughness: 0.8 });
+  const siloM = std('#a9a59b', { metalness: 0.15, roughness: 0.6 });
+  const roofG = new THREE.CylinderGeometry(0.01, 1, 1, 4, 1);
+  roofG.rotateY(Math.PI / 4);
+  const farmstead = (x: number, z: number, rot: number) => {
+    const f = new THREE.Group();
+    f.add(box(9, 6, 7, wall, 0, 3, 0));
+    const roof = new THREE.Mesh(roofG, roofM);
+    roof.scale.set(7.5, 3, 5.2);
+    roof.position.set(0, 7.5, 0);
+    f.add(roof);
+    f.add(box(9, 7, 13, barnM, -18, 3.5, -6));
+    const br = new THREE.Mesh(roofG, roofM);
+    br.scale.set(7, 2.6, 9.5);
+    br.position.set(-18, 8.3, -6);
+    f.add(br);
+    const nSilos = 1 + Math.floor(r() * 3);
+    for (let i = 0; i < nSilos; i++) {
+      const s = new THREE.Mesh(new THREE.CylinderGeometry(2.4, 2.4, 13 + r() * 6, 16), siloM);
+      s.position.set(10 + i * 5.5, 7, -8);
+      f.add(s);
+    }
+    f.position.set(x, 0, z);
+    f.rotation.y = rot;
+    g.add(f);
+  };
+  for (let i = 0; i < 10; i++) {
+    const a = (i / 10) * Math.PI * 2 + r() * 0.4;
+    const d = 260 + r() * 700;
+    farmstead(Math.cos(a) * d, -46 + Math.sin(a) * d, r() * Math.PI);
+  }
+  // Windbreak tree lines along field edges.
+  const treeG = new THREE.SphereGeometry(1, 8, 6);
+  const trunkless = std('#4a5a2e', { roughness: 1 });
+  const nTrees = hi ? 1400 : 700;
+  const trees = new THREE.InstancedMesh(treeG, trunkless, nTrees);
+  const m = new THREE.Matrix4();
+  let n = 0;
+  for (let line = 0; line < 14 && n < nTrees; line++) {
+    const vertical = r() < 0.5;
+    const off = (Math.floor(r() * 12) - 6) * 160 + (vertical ? -37 : 15);
+    const start = -900 + r() * 400;
+    const len = 300 + r() * 900;
+    for (let d = 0; d < len && n < nTrees; d += 6 + r() * 3) {
+      const x = vertical ? off : start + d;
+      const z = vertical ? start + d - 46 : off;
+      if (Math.abs(x) < 120 && z > -170 && z < 60) continue; // keep the home farm clear
+      const s = 3 + r() * 3;
+      m.compose(new THREE.Vector3(x, s * 0.9, z), new THREE.Quaternion(), new THREE.Vector3(s, s * 1.2, s));
+      trees.setMatrixAt(n++, m);
+    }
+  }
+  trees.count = n;
+  g.add(trees);
+  // A county road with power poles, running past the farm.
+  const poleM = std('#4a3a2a', { roughness: 1 });
+  const poles = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.15, 0.18, 9, 6), poleM, 60);
+  const arms = new THREE.InstancedMesh(new THREE.BoxGeometry(2.2, 0.15, 0.15), poleM, 60);
+  for (let i = 0; i < 60; i++) {
+    const x = -1500 + i * 50;
+    m.compose(new THREE.Vector3(x, 4.5, 72), new THREE.Quaternion(), new THREE.Vector3(1, 1, 1));
+    poles.setMatrixAt(i, m);
+    m.compose(new THREE.Vector3(x, 8.4, 72), new THREE.Quaternion(), new THREE.Vector3(1, 1, 1));
+    arms.setMatrixAt(i, m);
+  }
+  g.add(poles, arms);
+  const road = new THREE.Mesh(new THREE.PlaneGeometry(3000, 7), std('#8f7a58', { roughness: 1 }));
+  road.rotation.x = -Math.PI / 2;
+  road.position.set(0, 1.95, 66);
+  g.add(road);
+  g.traverse((o) => ((o as THREE.Mesh).castShadow = false));
+  return g;
+}
+
 export const buildFarm: SceneBuilder = (ctx) => {
   const hi = ctx.quality === 'high';
+  const free = !!ctx.freeLook;
   const scene = new THREE.Scene();
   scene.fog = new THREE.Fog('#c8a877', 25, 420);
-  const camera = new THREE.PerspectiveCamera(46, 1, 0.1, 2000);
+  // Free Look: a longer dusty haze so the surrounding farmland reads, fading into the sky's horizon colour.
+  const fogCol = free ? horizonColor('#e9cf9c').lerp(new THREE.Color('#c8a877'), 0.5) : new THREE.Color('#c8a877');
+  if (free) scene.fog = new THREE.Fog(fogCol, 40, 1300);
+  const camera = new THREE.PerspectiveCamera(46, 1, 0.1, free ? 6000 : 2000);
 
   const sunDir = new THREE.Vector3(-0.55, 0.32, -0.75).normalize();
   const sky = skyDome({ top: '#7f93a3', horizon: '#e9cf9c', bottom: '#8a7048', sunDir, sunColor: '#fff0d0', sunSize: 0.04, sunIntensity: 9, hazeHeight: 0.18 });
@@ -100,15 +232,15 @@ export const buildFarm: SceneBuilder = (ctx) => {
   scene.add(new THREE.HemisphereLight('#c9d0d4', '#6a5432', 1.25));
 
   // Ground.
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(1600, 1600, 1, 1), std('#6e5636', { roughness: 1 }));
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(free ? 8000 : 1600, free ? 8000 : 1600, 1, 1), std('#6e5636', { roughness: 1 }));
   ground.rotation.x = -Math.PI / 2;
   ground.receiveShadow = true;
   scene.add(ground);
 
   // Far canopy: the corn continues to the horizon as a textured surface.
   const canopy = new THREE.Mesh(
-    new THREE.PlaneGeometry(1600, 1600),
-    new THREE.ShaderMaterial({
+    new THREE.PlaneGeometry(free ? 8000 : 1600, free ? 8000 : 1600),
+    free ? farmlandMaterial(sunDir, fogCol) : new THREE.ShaderMaterial({
       uniforms: { uSun: { value: sunDir }, fogColor: { value: new THREE.Color('#c8a877') }, uTime: { value: 0 } },
       vertexShader: /* glsl */ `varying vec3 vW; varying float vD; void main() { vec4 w = modelMatrix * vec4(position, 1.0); vW = w.xyz; vec4 mv = viewMatrix * w; vD = -mv.z; gl_Position = projectionMatrix * mv; }`,
       fragmentShader: /* glsl */ `
@@ -249,10 +381,17 @@ export const buildFarm: SceneBuilder = (ctx) => {
       }
     `,
   });
-  const storm = new THREE.Mesh(new THREE.CylinderGeometry(520, 520, 260, 64, 1, true, Math.PI * 0.75, Math.PI * 0.5), stormMat);
+  // Free Look: the wall of dust spans most of the horizon, as it does when the storm arrives in the film.
+  const storm = new THREE.Mesh(
+    free
+      ? new THREE.CylinderGeometry(560, 560, 300, 128, 1, true, Math.PI * 0.35, Math.PI * 1.3)
+      : new THREE.CylinderGeometry(520, 520, 260, 64, 1, true, Math.PI * 0.75, Math.PI * 0.5),
+    stormMat,
+  );
   storm.position.set(0, 110, -40);
   storm.material.side = THREE.BackSide;
   scene.add(storm);
+  if (free) scene.add(surroundings(hi));
 
   // Airborne dust.
   const dust = particles({
@@ -290,6 +429,10 @@ export const buildFarm: SceneBuilder = (ctx) => {
       { at: new THREE.Vector3(-30, 40, -300), label: 'Dust storm' },
       { at: new THREE.Vector3(-8, 2.3, 0), label: 'Corn — the last viable crop' },
     ],
+    constrainFreeLook(cam) {
+      // Stay above the corn canopy (and never below the ground).
+      keepAbove(cam, () => 0, 2.6);
+    },
     update(t, _dt, k, free) {
       windU.uTime.value = t;
       stormMat.uniforms.uTime.value = t;

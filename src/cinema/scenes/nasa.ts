@@ -58,6 +58,7 @@ function hull() {
 
 export const buildNasa: SceneBuilder = (ctx) => {
   const hi = ctx.quality === 'high';
+  const free = !!ctx.freeLook;
   const scene = new THREE.Scene();
   scene.background = new THREE.Color('#05070a');
   scene.fog = new THREE.FogExp2('#1b232c', 0.014);
@@ -117,6 +118,63 @@ export const buildNasa: SceneBuilder = (ctx) => {
       scene.add(lamp);
     }
   });
+
+  // ── Free Look: the parts of the silo the cinematic shot never turns toward.
+  if (free) {
+    const dark = std('#24282c', { metalness: 0.6, roughness: 0.5 });
+    const yellow = std('#c9a03a', { roughness: 0.6 });
+    // Blast door and tunnel mouth at the base.
+    const doorA = -Math.PI * 0.62;
+    const door = new THREE.Group();
+    door.add(box(5.2, 5.6, 0.5, std('#5a5e62', { metalness: 0.7, roughness: 0.4 }), 0, 2.8, 0));
+    for (let i = -2; i <= 2; i++) door.add(box(0.08, 5.2, 0.1, dark, i * 1.0, 2.8, 0.28));
+    for (let i = 0; i < 9; i++) door.add(box(0.55, 0.22, 0.04, i % 2 ? dark : yellow, -2.2 + i * 0.55, 0.3, 0.27));
+    door.add(box(6.2, 0.5, 0.7, dark, 0, 5.85, 0));
+    const doorLamp = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8), new THREE.MeshBasicMaterial({ color: new THREE.Color(5, 0.8, 0.3) }));
+    doorLamp.position.set(2.9, 5.2, 0.4);
+    door.add(doorLamp);
+    door.position.set(Math.cos(doorA) * (R - 0.3), 0, Math.sin(doorA) * (R - 0.3));
+    door.lookAt(0, 0, 0);
+    scene.add(door);
+    // Control-room window band at mid height, lit from inside.
+    const winA = Math.PI * 0.15;
+    const ctrl = new THREE.Group();
+    ctrl.add(box(7.5, 2.0, 0.3, dark, 0, 0, 0));
+    for (let i = 0; i < 5; i++) {
+      const pane = new THREE.Mesh(new THREE.PlaneGeometry(1.25, 1.3), new THREE.MeshBasicMaterial({ color: new THREE.Color(0.9, 1.3, 1.6) }));
+      pane.position.set(-2.9 + i * 1.45, 0, 0.16);
+      ctrl.add(pane);
+    }
+    ctrl.position.set(Math.cos(winA) * (R - 0.2), 30, Math.sin(winA) * (R - 0.2));
+    ctrl.lookAt(0, 30, 0);
+    scene.add(ctrl);
+    // Vertical conduits and pipe runs around the wall.
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2 + 0.2;
+      const rr = 0.12 + (i % 3) * 0.06;
+      const pipe = new THREE.Mesh(new THREE.CylinderGeometry(rr, rr, Ht - 2, 10), i % 4 === 0 ? yellow : steel);
+      pipe.position.set(Math.cos(a) * (R - 0.35), Ht / 2, Math.sin(a) * (R - 0.35));
+      scene.add(pipe);
+    }
+    // Hazard stripe at the floor edge and stencilled bay markings.
+    const stripe = new THREE.Mesh(new THREE.RingGeometry(R - 0.9, R - 0.4, 96), std('#b8902e', { roughness: 0.7 }));
+    stripe.rotation.x = -Math.PI / 2;
+    stripe.position.y = 0.01;
+    scene.add(stripe);
+    const stencil = canvasTexture(512, 128, (c) => {
+      c.fillStyle = 'rgba(0,0,0,0)';
+      c.clearRect(0, 0, 512, 128);
+      c.fillStyle = 'rgba(230,226,210,0.8)';
+      c.font = 'bold 84px Arial';
+      c.fillText('BAY 1  ·  L-2', 16, 100);
+    });
+    for (const [y, a] of [[6, 0.9], [18, 2.4], [33, 4.1]] as const) {
+      const sm = new THREE.Mesh(new THREE.PlaneGeometry(5, 1.25), new THREE.MeshStandardMaterial({ map: stencil, transparent: true, roughness: 0.9 }));
+      sm.position.set(Math.cos(a) * (R - 0.05), y, Math.sin(a) * (R - 0.05));
+      sm.lookAt(0, y, 0);
+      scene.add(sm);
+    }
+  }
 
   // ── Launch vehicle
   const vehicle = new THREE.Group();
@@ -233,6 +291,17 @@ export const buildNasa: SceneBuilder = (ctx) => {
       { at: new THREE.Vector3(0, Ht, 0), label: 'Silo opening' },
       { at: new THREE.Vector3(R - 2, 24, 0), label: 'Catwalk' },
     ],
+    constrainFreeLook(cam) {
+      // Free Look stays inside the silo (never through the concrete); every direction stays open.
+      const p = cam.position;
+      const rad = Math.hypot(p.x, p.z);
+      const maxR = R - 0.8;
+      if (rad > maxR) {
+        p.x *= maxR / rad;
+        p.z *= maxR / rad;
+      }
+      p.y = THREE.MathUtils.clamp(p.y, 0.6, Ht - 1.5);
+    },
     update(t, _dt, k, free) {
       for (const p of [steam, motes]) (p.material as THREE.ShaderMaterial).uniforms.uTime.value = t;
       (shaftTop.material as THREE.ShaderMaterial).uniforms.uTime.value = t;

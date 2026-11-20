@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { NOISE } from '../glsl';
-import { disposeScene, easeInOut, starSphere } from '../lib';
+import { disposeScene, easeInOut, milkyWay, starSphere } from '../lib';
 import type { SceneBuilder } from '../types';
 import { createEndurance, createPlanet, createSun } from './parts';
 
@@ -12,6 +12,8 @@ export const buildSaturn: SceneBuilder = (ctx) => {
   const hi = ctx.quality === 'high';
   const scene = new THREE.Scene();
   scene.background = new THREE.Color('#000000');
+  // Free Look: a full deep-space sky behind Saturn.
+  if (ctx.freeLook) scene.add(milkyWay({ tilt: new THREE.Euler(0.4, 0.9, -0.3), intensity: 0.55 }));
   const camera = new THREE.PerspectiveCamera(38, 1, 0.5, 20000);
 
   const sunDir = new THREE.Vector3(-0.85, 0.18, 0.5).normalize();

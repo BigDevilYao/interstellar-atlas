@@ -1,0 +1,144 @@
+/*
+ * Cinema minimap — expandable, navigable. Scoped to .mm*; the compact state keeps the existing
+ * .hud--map / .flatmap styles exactly as they were.
+ */
+
+.mm__stage {
+  position: relative;
+  width: 150px;
+  height: 150px;
+  transform-origin: 100% 100%;
+  transform: scale(var(--mm-s, 1));
+  transition: transform 0.34s var(--ease);
+}
+
+.hud--map.mm {
+  transition: opacity 0.34s var(--ease);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.hud--map.mm.is-open {
+  opacity: 1;
+  z-index: 4;
+}
+
+.mm__layer {
+  position: absolute;
+  inset: 0;
+}
+
+.mm__pad {
+  position: absolute;
+}
+
+.mm__hit {
+  position: absolute;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+
+.mm__hit.is-here {
+  cursor: default;
+}
+
+.mm__hit:focus-visible {
+  outline: 1px solid var(--gold);
+  outline-offset: 0;
+}
+
+.mm__label {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  font-family: var(--mono);
+  font-weight: 500;
+  font-size: var(--mm-label, 9.5px);
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--ink-2);
+  text-shadow: 0 0 6px #000, 0 0 2px #000, 0 0 1px #000;
+  opacity: 0;
+  transform: translateY(1px);
+  pointer-events: none;
+  transition: opacity 0.18s var(--ease), transform 0.18s var(--ease), color 0.2s;
+}
+
+.mm__label--end {
+  justify-content: flex-end;
+}
+
+.mm__label--middle {
+  justify-content: center;
+}
+
+.mm.is-open .mm__label {
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+  cursor: pointer;
+  transition-delay: 0.12s, 0.12s, 0s;
+}
+
+.mm__label.is-here {
+  color: var(--gold);
+  cursor: default;
+}
+
+.mm__label.is-hot {
+  color: #fff;
+}
+
+.mm__leaders {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.18s var(--ease);
+}
+
+.mm.is-open .mm__leaders {
+  opacity: 1;
+  transition-delay: 0.12s;
+}
+
+.mm__leaders line {
+  stroke: rgba(236, 232, 224, 0.32);
+  stroke-width: 0.6;
+  vector-effect: non-scaling-stroke;
+}
+
+.mm__leaders line.is-hot {
+  stroke: rgba(255, 255, 255, 0.7);
+}
+
+.mm__ring {
+  fill: rgba(255, 255, 255, 0.14);
+  stroke: #fff;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  filter: drop-shadow(0 0 3px rgba(255, 255, 255, 0.75));
+}
+
+/* Touch: an explicit close control (tap outside also closes). */
+.mm__close {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  line-height: 1;
+  color: var(--ink-2);
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid var(--line-2);
+  border-radius: 50%;
+  cursor: pointer;
+  animation: subIn 0.25s var(--ease) both;
+}
